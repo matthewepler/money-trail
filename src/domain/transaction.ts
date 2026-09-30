@@ -9,6 +9,12 @@ export type Transaction = {
   account: string;
 };
 
+/** A transaction after it has been categorized and persisted. */
+export type StoredTransaction = Transaction & {
+  id: string;
+  category: string | null;
+};
+
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function isRealCalendarDate(date: string): boolean {

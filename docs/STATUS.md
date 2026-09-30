@@ -3,10 +3,9 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-09-29 (repo tooling scaffolded)
+**Last updated:** 2026-09-29 (Postgres client, migration, and transaction repository landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–2 done; step 3 (db client, migration, transaction
-repository) underway — client + migration on disk, repository not yet written
+**Increment in flight:** steps 1–3 done; step 4 (`src/parsers/chaseCsv.ts`, TDD) next
 
 ---
 
@@ -18,12 +17,22 @@ Vitest, Playwright, `package.json` scripts per `CLAUDE.md`. `npm run lint && npm
 typecheck && npm test` all pass clean on the empty suite. `docker-compose.yml` runs local
 Postgres 16; `.env.example` added.
 
-Since then: `src/domain/transaction.ts` + tests and `src/domain/errors.ts` are committed
-(`feat(domain): add normalized Transaction type with validation`), and `src/db/client.ts`,
-`src/db/migrate.ts`, `0001-create-users-and-transactions.sql`, and `tests/helpers/db.ts`
-exist uncommitted. The domain type already encodes ADR-0004's sign convention.
+Since then: `src/domain/transaction.ts` + tests and `src/domain/errors.ts` (now also
+`ConfigError`) are committed. Docker Desktop is installed and running; `docker compose up -d`
+brings up Postgres 16 (confirmed healthy). Migration `0001-create-users-and-transactions.sql`
+is written and applies cleanly (`users`, `transactions` with a `user_id` FK and a
+`(user_id, date)` index) via a small custom runner (`src/db/migrate.ts` — no migration
+framework dependency). `src/repositories/transactionRepository.ts` is built test-first
+against a real local Postgres: `insertTransactions`, `listTransactions` (date-range filter,
+newest-first), `summarizeByCategory`, every method scoped by `userId` first. Integration
+tests in `tests/integration/transactionRepository.test.ts` include a cross-user isolation
+check (user A never sees user B's rows) — 13/13 tests pass, lint/typecheck clean.
 
-Still missing: repositories, parsers, services, the Fastify server, and the entire client.
+Local env: `.env` (gitignored) mirrors `.env.example`; Node scripts load it via Node's native
+`--env-file` flag (no `dotenv` dependency); Vitest loads it into `process.env` via Vite's
+`loadEnv` in `vitest.config.ts` so integration tests can reach the DB.
+
+Still missing: parsers, services, the Fastify server, and the entire client.
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -36,9 +45,9 @@ Still missing: repositories, parsers, services, the Fastify server, and the enti
   in `BACKLOG.md`.
 - No visual direction — plain system-font layout for v1.
 
-**Note:** Docker itself is not installed on this machine (no `docker`, `podman`, or
-`colima` found). `docker compose up` won't work until Docker Desktop (or an equivalent) is
-installed — a system-level install to be done by the user, not automated here.
+**Note:** Docker Desktop is now installed and its daemon is running. The `docker` CLI isn't
+on the default shell `PATH` on this machine — invoke it via
+`/Applications/Docker.app/Contents/Resources/bin/docker`, or add that directory to `PATH`.
 
 **Phase map (revised 2026-09-08):** v1 core web app → v2 resilience + auth + isolation →
 v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. The earlier
@@ -76,7 +85,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 | 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean (empty suite) |
 | 3 | Happy path works end to end in a real mobile browser | ❌ not started |
 | 4 | No horizontal scroll or clipped controls at 375×667 | ❌ not started |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ❌ not started — no code yet |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ⏳ domain + repository covered; categorizer not written yet |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
 | 7 | `README.md` documents running the app locally in one command | ✅ written (untested — no Docker on this machine yet) |
 
@@ -120,6 +129,11 @@ Newest first. One or two lines per session.
 - **2026-09-29** — Scope narrowed to everyday spending across multiple checking accounts;
   credit cards, loans, and investments out (ADR-0004). Amount sign settled: negative =
   money out. Working through the pre-planning decision list, one at a time.
+- **2026-09-29** — Docker Desktop installed; local Postgres up via `docker compose`. Step 3
+  landed: `src/db/client.ts`, migration runner + first migration (`users`, `transactions`),
+  and `src/repositories/transactionRepository.ts` (insert, list with date-range filtering,
+  category summary), all scoped by `userId`, TDD against a real local database. 13/13 tests
+  pass, including a cross-user isolation check.
 - **2026-09-08** — Retargeted the project from a local CLI to a web app + installable PWA.
   Rewrote `CLAUDE.md` (five phases, client/server layering, data-isolation rules, mobile and
   service-worker rules, Postgres over SQLite, Plaid secrets server-side only). Added
