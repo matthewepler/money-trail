@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+.DS_Store
+
+# Real bank exports — never commit real financial data. Synthetic fixtures
+# for tests live in fixtures/ instead.
+docs/sample_csv/
+
+# Editor
+.vscode/
+.idea/
+*.swp

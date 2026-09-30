@@ -1,0 +1,29 @@
+# money-trail
+
+Personal transaction tracking: upload a bank CSV, get a normalized, categorized ledger and a
+spend-by-category summary. Mobile-first web app.
+
+## Run it locally
+
+Requires Node 20+ (`.nvmrc` pins this — `nvm use` if you have nvm) and Docker for the local
+database.
+
+```bash
+docker compose up -d   # starts Postgres on localhost:5432
+cp .env.example .env
+npm install
+npm run db:migrate
+npm run seed
+npm run dev             # api on :3000, client on :5173
+```
+
+Open `http://localhost:5173`.
+
+## Development
+
+See [CLAUDE.md](./CLAUDE.md) for the full phase plan, architecture, and conventions.
+Current status: [docs/STATUS.md](./docs/STATUS.md).
+
+```bash
+npm run lint && npm run typecheck && npm test   # before considering any change done
+```
