@@ -13,6 +13,15 @@ export type Transaction = {
 export type StoredTransaction = Transaction & {
   id: string;
   category: string | null;
+  /** Where this row came from, e.g. 'chase-csv' or 'plaid'. */
+  source: string;
+  /** The provider's own id for this transaction (v4+ only; null for file imports). */
+  externalId: string | null;
+  /**
+   * Distinguishes otherwise-identical rows (same source, account, date, amount,
+   * description) imported together — e.g. two identical same-day coffees. See ADR-0006.
+   */
+  occurrenceIndex: number;
 };
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

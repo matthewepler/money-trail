@@ -20,7 +20,9 @@ describe('transactionRepository', () => {
         description: 'CORNER BAKERY',
         amountCents: -381,
         account: 'chase-checking',
-        category: 'Food',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
       },
     ]);
 
@@ -29,7 +31,10 @@ describe('transactionRepository', () => {
       description: 'CORNER BAKERY',
       amountCents: -381,
       account: 'chase-checking',
-      category: 'Food',
+      category: 'FOOD_AND_DRINK',
+      source: 'chase-csv',
+      externalId: null,
+      occurrenceIndex: 1,
     });
     expect(typeof stored?.id).toBe('string');
   });
@@ -45,6 +50,8 @@ describe('transactionRepository', () => {
         amountCents: -100,
         account: 'chase-checking',
         category: null,
+        source: 'chase-csv',
+        externalId: null,
       },
     ]);
     await insertTransactions(otherId, [
@@ -54,6 +61,8 @@ describe('transactionRepository', () => {
         amountCents: -200,
         account: 'chase-checking',
         category: null,
+        source: 'chase-csv',
+        externalId: null,
       },
     ]);
 
@@ -67,9 +76,33 @@ describe('transactionRepository', () => {
     const userId = await insertTestUser('owner@example.com');
 
     await insertTransactions(userId, [
-      { date: '2026-08-01', description: 'BEFORE', amountCents: -1, account: 'a', category: null },
-      { date: '2026-09-15', description: 'DURING', amountCents: -1, account: 'a', category: null },
-      { date: '2026-10-01', description: 'AFTER', amountCents: -1, account: 'a', category: null },
+      {
+        date: '2026-08-01',
+        description: 'BEFORE',
+        amountCents: -1,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
+        date: '2026-09-15',
+        description: 'DURING',
+        amountCents: -1,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
+        date: '2026-10-01',
+        description: 'AFTER',
+        amountCents: -1,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
     ]);
 
     const result = await listTransactions(userId, { from: '2026-09-01', to: '2026-09-30' });
@@ -82,8 +115,24 @@ describe('transactionRepository', () => {
     const userId = await insertTestUser('owner@example.com');
 
     await insertTransactions(userId, [
-      { date: '2026-09-01', description: 'OLDER', amountCents: -1, account: 'a', category: null },
-      { date: '2026-09-20', description: 'NEWER', amountCents: -1, account: 'a', category: null },
+      {
+        date: '2026-09-01',
+        description: 'OLDER',
+        amountCents: -1,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
+        date: '2026-09-20',
+        description: 'NEWER',
+        amountCents: -1,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
     ]);
 
     const result = await listTransactions(userId);
@@ -96,29 +145,121 @@ describe('transactionRepository', () => {
     const otherId = await insertTestUser('other@example.com');
 
     await insertTransactions(ownerId, [
-      { date: '2026-09-05', description: 'A', amountCents: -500, account: 'a', category: 'Food' },
-      { date: '2026-09-10', description: 'B', amountCents: -300, account: 'a', category: 'Food' },
+      {
+        date: '2026-09-05',
+        description: 'A',
+        amountCents: -500,
+        account: 'a',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
+        date: '2026-09-10',
+        description: 'B',
+        amountCents: -300,
+        account: 'a',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
+      },
       {
         date: '2026-09-12',
         description: 'C',
         amountCents: -700,
         account: 'a',
-        category: 'Transport',
+        category: 'TRANSPORTATION',
+        source: 'chase-csv',
+        externalId: null,
       },
-      { date: '2026-08-01', description: 'D', amountCents: -900, account: 'a', category: 'Food' },
+      {
+        date: '2026-08-01',
+        description: 'D',
+        amountCents: -900,
+        account: 'a',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
+      },
     ]);
     await insertTransactions(otherId, [
-      { date: '2026-09-05', description: 'E', amountCents: -1000, account: 'a', category: 'Food' },
+      {
+        date: '2026-09-05',
+        description: 'E',
+        amountCents: -1000,
+        account: 'a',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
+      },
     ]);
 
     const summary = await summarizeByCategory(ownerId, '2026-09-01', '2026-09-30');
 
     expect(summary).toEqual(
       expect.arrayContaining([
-        { category: 'Food', totalCents: -800 },
-        { category: 'Transport', totalCents: -700 },
+        { category: 'FOOD_AND_DRINK', totalCents: -800 },
+        { category: 'TRANSPORTATION', totalCents: -700 },
       ]),
     );
     expect(summary).toHaveLength(2);
+  });
+
+  describe('transaction identity (ADR-0006)', () => {
+    const coffee = {
+      date: '2026-09-29',
+      description: 'COFFEE SHOP',
+      amountCents: -350,
+      account: 'chase-checking',
+      category: 'FOOD_AND_DRINK',
+      source: 'chase-csv',
+      externalId: null,
+    };
+
+    it('assigns sequential occurrence indices to identical rows within one batch', async () => {
+      const userId = await insertTestUser('owner@example.com');
+
+      const stored = await insertTransactions(userId, [coffee, coffee, coffee]);
+
+      expect(stored.map((t) => t.occurrenceIndex).sort()).toEqual([1, 2, 3]);
+    });
+
+    it('continues occurrence indices against rows already persisted from an earlier import', async () => {
+      const userId = await insertTestUser('owner@example.com');
+
+      await insertTransactions(userId, [coffee]);
+      const second = await insertTransactions(userId, [coffee]);
+
+      expect(second[0]?.occurrenceIndex).toBe(2);
+    });
+
+    it('scopes occurrence indices per user', async () => {
+      const ownerId = await insertTestUser('owner@example.com');
+      const otherId = await insertTestUser('other@example.com');
+
+      await insertTransactions(ownerId, [coffee]);
+      const otherStored = await insertTransactions(otherId, [coffee]);
+
+      expect(otherStored[0]?.occurrenceIndex).toBe(1);
+    });
+
+    it('does not mix occurrence indices across different sources', async () => {
+      const userId = await insertTestUser('owner@example.com');
+
+      await insertTransactions(userId, [coffee]);
+      const otherSource = await insertTransactions(userId, [{ ...coffee, source: 'schwab-csv' }]);
+
+      expect(otherSource[0]?.occurrenceIndex).toBe(1);
+    });
+
+    it('stores a provider externalId untouched', async () => {
+      const userId = await insertTestUser('owner@example.com');
+
+      const [stored] = await insertTransactions(userId, [
+        { ...coffee, source: 'plaid', externalId: 'plaid-txn-123' },
+      ]);
+
+      expect(stored?.externalId).toBe('plaid-txn-123');
+    });
   });
 });

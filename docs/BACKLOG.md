@@ -11,7 +11,7 @@ Critical or high bugs block the current gate.
 
 ## Bugs
 
-None open. (Project not yet scaffolded.)
+None open.
 
 <!-- Example of the shape once there is code:
 - [high] Amounts with a trailing `CR` suffix parse as NaN instead of a negative — `parsers/chaseCsv.ts`, fixture `chase-credit-note.csv`.
@@ -27,11 +27,6 @@ None open. (Project not yet scaffolded.)
 - [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
   `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
   Required status checks on the default branch.
-- [v1] Migration `0002-add-transaction-identity.sql`: `source`, `external_id` (nullable,
-  unique per source), `occurrence_index` (ADR-0006). `0001` is committed and applied, so it
-  is not editable. The transaction repository lands before these columns exist and must be
-  revisited when they do.
-
 ## Deferred — v2 (resilience, auth, isolation)
 
 - [v2] Multi-user signup, argon2id password hashing, session rotation on login, logout everywhere.

@@ -3,11 +3,10 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-09-29 (Postgres client, migration, and transaction repository landed)
+**Last updated:** 2026-09-29 (migration 0002 + transaction identity landed; step 4 unblocked)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–3 done; step 4 (`src/parsers/chaseCsv.ts`, TDD) next.
-**Before step 4:** migration `0002` for ADR-0006's identity columns, and the repository
-updated to carry them — the parser's output shape depends on it.
+**Increment in flight:** steps 1–3 done, plus the ADR-0006 identity follow-up; step 4
+(`src/parsers/chaseCsv.ts`, TDD) next — no longer blocked.
 
 ---
 
@@ -33,6 +32,18 @@ check (user A never sees user B's rows) — 13/13 tests pass, lint/typecheck cle
 Local env: `.env` (gitignored) mirrors `.env.example`; Node scripts load it via Node's native
 `--env-file` flag (no `dotenv` dependency); Vitest loads it into `process.env` via Vite's
 `loadEnv` in `vitest.config.ts` so integration tests can reach the DB.
+
+**ADR-0006 follow-up landed:** migration `0002-add-transaction-identity.sql` adds `source`
+(not null), `external_id` (nullable, unique per source), and `occurrence_index` (not null),
+plus a unique index on `(user_id, source, account, date, amount_cents, description,
+occurrence_index)` as a safety net. `StoredTransaction` and `transactionRepository.ts` carry
+the new fields; `insertTransactions` now computes `occurrence_index` itself in a single
+query — against rows already persisted for the user *and* duplicates within the same
+batch — via `ROW_NUMBER()` over the batch joined against a per-identity count of existing
+rows. Callers no longer supply it. 18/18 tests pass, including: sequential indices within
+one batch, indices continuing correctly across two separate imports, scoping per user, and
+no mixing across sources. Enforcement (skip-on-duplicate import) is still v2 scope — v1 only
+needed the columns and correct indexing to exist from the start, so v4 needs no backfill.
 
 Still missing: parsers, services, the Fastify server, and the entire client.
 
@@ -132,14 +143,19 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 - ADR-0010 — self-service account deletion and JSON export land in v2.
 
 **No decisions outstanding.** The pre-planning pass is complete; remaining items are work,
-not questions. Nearest: migration `0002` (ADR-0006 identity columns) and the repository
-update, both before step 4's parser.
+not questions. Migration `0002` (ADR-0006 identity columns) and the repository update are
+done; step 4's parser is next and unblocked.
 
 ## Session log
 
 
 Newest first. One or two lines per session.
 
+- **2026-09-29** — Migration `0002-add-transaction-identity.sql` (`source`, `external_id`,
+  `occurrence_index`, plus a unique identity index) and `transactionRepository.ts` updated to
+  compute `occurrence_index` server-side, against both persisted rows and same-batch
+  duplicates — the ADR-0006 follow-up required before step 4. 18/18 tests pass. Step 4
+  (`src/parsers/chaseCsv.ts`) is next and unblocked.
 - **2026-09-29** — Decision pass before planning: scope narrowed to checking accounts only
   and amount sign settled (ADR-0004); category taxonomy set to Plaid PFC primaries
   (ADR-0005). STATUS synced with what is actually on disk.

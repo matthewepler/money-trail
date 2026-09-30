@@ -1,7 +1,11 @@
 import { pool } from '../db/client.js';
 import type { StoredTransaction, Transaction } from '../domain/transaction.js';
 
-export type NewTransaction = Transaction & { category: string | null };
+export type NewTransaction = Transaction & {
+  category: string | null;
+  source: string;
+  externalId: string | null;
+};
 
 type TransactionRow = {
   id: string;
@@ -10,6 +14,9 @@ type TransactionRow = {
   amount_cents: number;
   account: string;
   category: string | null;
+  source: string;
+  external_id: string | null;
+  occurrence_index: number;
 };
 
 function toStoredTransaction(row: TransactionRow): StoredTransaction {
@@ -20,9 +27,24 @@ function toStoredTransaction(row: TransactionRow): StoredTransaction {
     amountCents: row.amount_cents,
     account: row.account,
     category: row.category,
+    source: row.source,
+    externalId: row.external_id,
+    occurrenceIndex: row.occurrence_index,
   };
 }
 
+const SELECT_COLUMNS = `
+  id, date::text AS date, description, amount_cents, account, category,
+  source, external_id, occurrence_index
+`;
+
+/**
+ * occurrence_index distinguishes otherwise-identical rows (same source, account, date,
+ * amount, description) imported together, e.g. two identical same-day coffees (ADR-0006).
+ * It is computed here, against both rows already persisted for this user and duplicates
+ * within the current batch, rather than supplied by the caller — assigning it correctly
+ * needs visibility into what's already in the database.
+ */
 export async function insertTransactions(
   userId: string,
   transactions: NewTransaction[],
@@ -30,9 +52,32 @@ export async function insertTransactions(
   if (transactions.length === 0) return [];
 
   const result = await pool.query<TransactionRow>(
-    `INSERT INTO transactions (user_id, date, description, amount_cents, account, category)
-     SELECT $1, * FROM unnest($2::date[], $3::text[], $4::int[], $5::text[], $6::text[])
-     RETURNING id, date::text AS date, description, amount_cents, account, category`,
+    `WITH input AS (
+       SELECT
+         src.date, src.description, src.amount_cents, src.account, src.category,
+         src.source, src.external_id,
+         ROW_NUMBER() OVER (
+           PARTITION BY src.source, src.account, src.date, src.amount_cents, src.description
+           ORDER BY src.ord
+         ) AS batch_rank
+       FROM unnest($2::date[], $3::text[], $4::int[], $5::text[], $6::text[], $7::text[], $8::text[])
+         WITH ORDINALITY AS src(date, description, amount_cents, account, category, source, external_id, ord)
+     ),
+     existing_counts AS (
+       SELECT source, account, date, amount_cents, description, COUNT(*) AS existing_count
+       FROM transactions
+       WHERE user_id = $1
+       GROUP BY source, account, date, amount_cents, description
+     )
+     INSERT INTO transactions
+       (user_id, date, description, amount_cents, account, category, source, external_id, occurrence_index)
+     SELECT
+       $1, input.date, input.description, input.amount_cents, input.account, input.category,
+       input.source, input.external_id,
+       COALESCE(existing_counts.existing_count, 0) + input.batch_rank
+     FROM input
+     LEFT JOIN existing_counts USING (source, account, date, amount_cents, description)
+     RETURNING ${SELECT_COLUMNS}`,
     [
       userId,
       transactions.map((t) => t.date),
@@ -40,6 +85,8 @@ export async function insertTransactions(
       transactions.map((t) => t.amountCents),
       transactions.map((t) => t.account),
       transactions.map((t) => t.category),
+      transactions.map((t) => t.source),
+      transactions.map((t) => t.externalId),
     ],
   );
 
@@ -63,7 +110,7 @@ export async function listTransactions(
   }
 
   const result = await pool.query<TransactionRow>(
-    `SELECT id, date::text AS date, description, amount_cents, account, category
+    `SELECT ${SELECT_COLUMNS}
      FROM transactions
      WHERE ${conditions.join(' AND ')}
      ORDER BY date DESC, id DESC`,
