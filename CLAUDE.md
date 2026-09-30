@@ -1,9 +1,12 @@
 # money-trail
 
-A web application and installable PWA for personal transaction tracking. It pulls
-transactions from the user's bank accounts (read-only, via Plaid) and from file exports
-(CSV/OFX), normalizes them into a single ledger, categorizes them, and reports on where
-money actually goes. Mobile-first: most sessions happen on a phone.
+A web application and installable PWA for tracking everyday spending across **multiple
+checking accounts**. It pulls transactions from those accounts (read-only, via Plaid) and
+from file exports (CSV/OFX), normalizes them into a single ledger, categorizes them, and
+reports on where money actually goes. Mobile-first: most sessions happen on a phone.
+
+Credit cards, loans, and investment accounts are deliberately out of scope — see
+`docs/DECISIONS.md` ADR-0004.
 
 ---
 
@@ -442,8 +445,9 @@ money-trail/
 - API routes are plural nouns under `/api/` — `/api/transactions`, `/api/summary`.
   Responses are `{ data }` or `{ error: { code, message } }`, never a bare array.
 - Migrations: `0003-add-merchant-column.sql` — sequential, never edited once applied.
-- Money: integer cents everywhere, formatted only in the view. Dates: ISO `YYYY-MM-DD`
-  strings at every boundary, `Date` objects only inside services.
+- Money: integer cents everywhere, signed (negative = money out), formatted only in the
+  view. Dates: ISO `YYYY-MM-DD` strings at every boundary, `Date` objects only inside
+  services.
 - Commits: `type(scope): summary` — e.g. `feat(importer): dedupe rows by content hash`.
   One increment per commit.
 
@@ -455,6 +459,13 @@ money-trail/
 - **Fastify** for the API. Sessions in httpOnly, Secure, SameSite=Lax cookies. No JWT in
   `localStorage` — ever.
 - **Postgres** via `pg`, plain SQL, no ORM. Repositories write SQL directly.
+- **Checking accounts only** (ADR-0004). No credit cards, loans, or investments. Parsers
+  reject non-checking exports; in v4, Plaid Link is configured for `depository`/`checking`
+  only and the mapper drops anything else. A request to "also track my credit card" is a
+  scope expansion — ask before building it.
+- **Amount sign: negative = money out, positive = money in**, on every account. Parsers
+  normalize to this; the v4 Plaid mapper negates, since Plaid reports depository outflows
+  as positive. Never store an unsigned amount.
 - **Vitest** + Testing Library for unit/integration, **Playwright** for e2e,
   **ESLint + Prettier** for style.
 - **Plaid** (`plaid` Node SDK) is the only bank connectivity, added in v4, read-only,

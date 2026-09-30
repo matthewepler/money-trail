@@ -84,6 +84,10 @@ None open. (Project not yet scaffolded.)
 
 Kept so they don't get re-proposed each session.
 
+- Credit cards, loans, and investment accounts. Checking accounts only (ADR-0004).
+  Revisiting means a real decision about balance-vs-flow semantics, not just a new parser.
+- Unsigned amounts or a `direction` column. Amounts are signed; negative = money out.
+
 - Handling bank credentials ourselves — no password field, no credential storage, no
   forwarding. Plaid Link owns that step. See `DECISIONS.md` ADR-0002.
 - Any Plaid payment, transfer, or funds-movement endpoint. Read-only, permanently.

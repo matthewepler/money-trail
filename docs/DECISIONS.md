@@ -108,3 +108,37 @@ and cannot hold Plaid secrets — it would need the server anyway, plus a sync e
 Keeping SQLite server-side (workable if we always self-host on a persistent disk; Postgres
 costs little more and does not constrain where we deploy — revisit if we commit to
 single-tenant self-hosting).
+
+
+---
+
+## ADR-0004 — Checking accounts only; signed amounts, negative = money out
+
+**Date:** 2026-09-29 · **Status:** accepted
+
+**Context.** The product is a daily-expense tracker across several checking accounts, not a
+net-worth tool. Amount sign had to be settled before `domain/transaction.ts` exists, because
+every parser, every aggregation, and the v4 Plaid mapper depend on it, and changing it later
+means re-importing every transaction.
+
+Credit cards were the hard case: a charge increases what you owe, so "money out" and
+"balance up" point in opposite directions, and a card's ledger mixes spending with
+statement payments that would double-count against the checking account that paid them.
+
+**Decision.**
+
+1. **Checking (depository) accounts only.** Parsers reject non-checking exports. In v4,
+   Link is configured for `depository`/`checking` and the mapper drops other account types.
+2. **Amounts are signed integer cents: negative = money out, positive = money in.** No
+   unsigned amount, no `direction` column. Summing any set of rows yields net cash flow.
+
+**Consequences.** Excluding cards removes transfer/payment double-counting from v1 and v2
+entirely — a real simplification for the dedupe work, not just less surface area. Most
+checking CSV exports already use this sign convention, so parsers largely pass through;
+Plaid reports depository outflows as *positive*, so the v4 mapper negates — one negation in
+one file, covered by the mapper's 100% coverage requirement. Category totals are negative in
+the database and get flipped at the view edge; the summary screen must do this exactly once.
+
+**Revisit when** the user wants card spending. That is not a parser task: it needs a decision
+about balance-vs-flow semantics and about matching card payments against the checking
+outflow that funded them, so it gets its own ADR.

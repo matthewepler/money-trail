@@ -5,7 +5,8 @@
 
 **Last updated:** 2026-09-29 (repo tooling scaffolded)
 **Current phase:** v1 — Core web app
-**Increment in flight:** step 1 (repo tooling) done; step 2 (`src/domain/transaction.ts`, TDD) next
+**Increment in flight:** steps 1–2 done; step 3 (db client, migration, transaction
+repository) underway — client + migration on disk, repository not yet written
 
 ---
 
@@ -15,8 +16,14 @@ Git repo initialized, remote set to `git@github.com:matthewepler/money-trail.git
 scaffolded: TypeScript strict (single root `tsconfig.json`), ESLint 9 flat config + Prettier,
 Vitest, Playwright, `package.json` scripts per `CLAUDE.md`. `npm run lint && npm run
 typecheck && npm test` all pass clean on the empty suite. `docker-compose.yml` runs local
-Postgres 16; `.env.example` added. No app source yet — `src/domain/transaction.ts` is next,
-test-first.
+Postgres 16; `.env.example` added.
+
+Since then: `src/domain/transaction.ts` + tests and `src/domain/errors.ts` are committed
+(`feat(domain): add normalized Transaction type with validation`), and `src/db/client.ts`,
+`src/db/migrate.ts`, `0001-create-users-and-transactions.sql`, and `tests/helpers/db.ts`
+exist uncommitted. The domain type already encodes ADR-0004's sign convention.
+
+Still missing: repositories, parsers, services, the Fastify server, and the entire client.
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -101,6 +108,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 
 ## Session log
 
+
 Newest first. One or two lines per session.
 
 - **2026-09-29** — Scaffolded repo tooling (step 1 of the v1 plan): git init + GitHub
@@ -109,6 +117,9 @@ Newest first. One or two lines per session.
   `npm run lint && npm run typecheck && npm test` clean on the empty suite. Answered the
   three open v1 questions: Chase CSV format, local Docker deploy, no visual direction.
   Docker is not installed on this machine yet — flagged, not installed automatically.
+- **2026-09-29** — Scope narrowed to everyday spending across multiple checking accounts;
+  credit cards, loans, and investments out (ADR-0004). Amount sign settled: negative =
+  money out. Working through the pre-planning decision list, one at a time.
 - **2026-09-08** — Retargeted the project from a local CLI to a web app + installable PWA.
   Rewrote `CLAUDE.md` (five phases, client/server layering, data-isolation rules, mobile and
   service-worker rules, Postgres over SQLite, Plaid secrets server-side only). Added
