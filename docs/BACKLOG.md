@@ -19,9 +19,28 @@ None open. (Project not yet scaffolded.)
 
 ---
 
+## Deferred — v1 (current phase, not yet built)
+
+- [v1] Verify the Plaid PFC primary list against Plaid's published taxonomy before the rule
+  engine ships — ADR-0005's list was written from memory and must be checked.
+- [v1] Display-label map for category constants, in `src/web/` only.
+- [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
+  `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
+  Required status checks on the default branch.
+- [v1] Migration `0002-add-transaction-identity.sql`: `source`, `external_id` (nullable,
+  unique per source), `occurrence_index` (ADR-0006). `0001` is committed and applied, so it
+  is not editable. The transaction repository lands before these columns exist and must be
+  revisited when they do.
+
 ## Deferred — v2 (resilience, auth, isolation)
 
 - [v2] Multi-user signup, argon2id password hashing, session rotation on login, logout everywhere.
+- [v2] `DELETE /api/account` — password re-entry, cascade to transactions, session
+  destroyed. Test asserts zero rows remain in every table (ADR-0010).
+- [v2] `GET /api/export` — full ledger as JSON, scoped by session user. Doubles as the only
+  backup available while deployment is local-only.
+- [v2] Manual password-reset procedure: a documented `npm run` script that sets a new hash
+  for a given email, plus a README note. This is the whole recovery story (ADR-0009).
 - [v2] Per-user scoping enforced in every repository method; cross-tenant access tests per route.
 - [v2] CSRF tokens on mutations; security headers (CSP, HSTS, frame-ancestors, nosniff).
 - [v2] Rate limiting on auth and upload routes.
@@ -64,6 +83,11 @@ None open. (Project not yet scaffolded.)
 - [v4] CSP allowance for `https://cdn.plaid.com` and nothing else.
 - [v4] Verify the Link flow inside the installed iOS PWA, including an OAuth institution.
 - [v4] Decide reconciliation when the same transaction arrives from both a CSV import and a sync.
+- [v4] Disconnect flow: `/item/remove` then delete the local record; test that a failed
+  remove does not delete the local record (otherwise the token is orphaned).
+- [v4] Account deletion must remove every Plaid item before deleting the user row.
+- [v4] Handle a Plaid primary category we don't know about (they add one) — store it rather
+  than dropping it, and surface it as uncategorized in the UI until labeled.
 
 ## Deferred — v5 (analysis and polish)
 
@@ -79,6 +103,20 @@ None open. (Project not yet scaffolded.)
 - [v5] Feature flags so each v5 capability degrades to v4 behavior when off.
 
 ---
+
+## Considered and deferred
+
+Not rejected — sequenced later, with the reason recorded so the analysis is not redone.
+
+- Passkeys / WebAuthn (Face ID login). The auth code is cheap (`@simplewebauthn/*`, one
+  credentials table, four routes); the cost is environmental — WebAuthn needs a secure
+  context, so `npm run dev -- --host` over a LAN IP cannot test it, and real-device
+  verification needs mkcert-with-CA-on-phone, a tunnel, or a deployed origin. Playwright's
+  virtual authenticator covers Chromium only, so iOS stays manual. Revisit alongside v3's
+  real-device work, where that plumbing is needed anyway. Keep passwords as the fallback if
+  it lands — passkey-only trades code for lockout risk.
+- A transactional email provider (Postmark/Resend/SES). Trigger: the app has users other
+  than its author. Needs an ADR amending ADR-0009 and the one-outbound-destination rule.
 
 ## Rejected / out of scope
 

@@ -68,15 +68,20 @@ overlapping date ranges, so idempotent writes and dedupe must be correct *before
 network-sourced data exists.
 
 Scope:
-- Real multi-user auth: signup, argon2id hashing, session rotation, logout everywhere
+- Real multi-user auth: signup, argon2id hashing, session rotation, logout everywhere.
+  **No password reset and no email verification** — the app sends no mail at all
+  (ADR-0009). A forgotten password is reset by hand against the database.
 - **Every repository query scoped by `userId`** — see Data Isolation below
 - CSRF protection, security headers, rate limiting on auth and upload routes
 - Input validation with actionable error messages (bad dates, bad amounts, wrong columns)
-- Idempotent imports — re-importing the same file is a no-op (content-hash dedupe)
+- Idempotent imports — layered identity, never a bare content hash (see Transaction
+  Identity below)
 - Transactional writes; a failed import rolls back cleanly
 - Structured logging and a real error taxonomy (see Error Handling)
 - Second bank format + format auto-detection
 - Schema migrations
+- Account deletion (`DELETE /api/account`, behind password re-entry) and full-ledger export
+  (`GET /api/export`, JSON) — see ADR-0010
 
 **Gate to v3 — all must be true:**
 - [ ] Everything in the v1 gate still true
@@ -85,7 +90,11 @@ Scope:
       including by passing B's ids directly to every route
 - [ ] Malformed-input fixtures exist and are tested for all supported formats
 - [ ] Importing the same file twice produces zero duplicate rows (regression test)
+- [ ] Two genuinely identical transactions on the same day and account both survive import
+      (regression test — the case a naive content hash silently eats)
 - [ ] Migrations run forward on a v1-era database in a test
+- [ ] Deleting an account leaves no rows behind in any table (test asserts counts, not just
+      a successful response)
 
 ### Phase v3 — Installable PWA
 
@@ -123,12 +132,17 @@ Scope:
 - `/transactions/sync` with a persisted cursor per item — incremental, resumable
 - Mapping Plaid transactions onto the existing domain transaction (no parallel model)
 - Handling `removed` and modified transactions from the sync response
-- Re-auth detection (`ITEM_LOGIN_REQUIRED`) surfaced as an actionable in-app prompt
+- Pending transactions reconciled via `pending_transaction_id`, never by content
+- Re-auth detection (`ITEM_LOGIN_REQUIRED`) surfaced as an actionable in-app prompt, which
+  mints an update-mode `link_token`
+- Disconnect a bank: call `/item/remove`, then delete the local item record — in that order
 - Rate-limit and transient-failure retry with backoff, confined to the provider layer
 
-**Read-only, always.** Only these endpoints: `/link/token/create`,
-`/item/public_token/exchange`, `/accounts/get`, `/transactions/sync`, `/institutions/*`.
-Never a Plaid payment, transfer, or funds-movement endpoint. See Bank Connectivity below.
+**Read-only with respect to money.** The full allowlist: `/link/token/create` (initial link
+*and* update mode for re-auth), `/item/public_token/exchange`, `/accounts/get`,
+`/transactions/sync`, `/institutions/*`, and `/item/remove` (disconnect — a write, but one
+that only revokes our own access). Never a payment, transfer, or funds-movement endpoint.
+Adding anything to this list requires an ADR. See Bank Connectivity below.
 
 **Gate to v5 — all must be true:**
 - [ ] Everything in the v3 gate still true
@@ -206,6 +220,24 @@ web → api client → HTTP → server routes → services → { repositories �
 
 A layer never imports upward. If you need to, the abstraction is wrong — ask.
 
+### Transaction identity (v2+)
+
+Dedupe is layered. **Never identify a transaction by a bare content hash** — two identical
+$3.50 coffees on the same day are two transactions, and silently merging them is data loss.
+
+1. **File level.** Hash the uploaded file; re-importing the identical file is a no-op.
+2. **Row level, imported (CSV/OFX).** Identity is
+   `(source, account, date, amountCents, description, occurrenceIndex)`, where
+   `occurrenceIndex` counts identical rows within that date and account. Two coffees stay
+   two coffees.
+3. **Row level, provider (v4+).** Identity is `(source, externalId)` — Plaid's
+   `transaction_id`. Pending rows reconcile to their posted row via `pending_transaction_id`,
+   never by comparing content: a posted amount often differs from the pending one (tips,
+   fuel holds).
+
+Posted-only through v3; CSV exports carry no pending rows. The `source`, `externalId`, and
+`occurrenceIndex` columns exist from the start so v4 needs no backfill.
+
 ### Data isolation (v2+)
 
 - Every repository method takes `userId` as its first parameter and includes it in the
@@ -258,8 +290,13 @@ A layer never imports upward. If you need to, the abstraction is wrong — ask.
   returns a public token. Do not build a bank username/password field, do not accept
   credentials as parameters, do not store or forward them. If a task appears to require
   handling a bank password directly, stop and ask — the answer is Link.
-- **Read-only.** Only the endpoints listed in the v4 scope. Calling a Plaid payment,
-  transfer, or funds-movement endpoint is out of scope for this project entirely.
+- **Read-only with respect to money**, which is the promise being made — not "no HTTP verb
+  that writes". `/item/remove` is the one write we make, and it only revokes our own access.
+  Any payment, transfer, or funds-movement endpoint is out of scope for this project
+  entirely: no exception, no feature flag, no "just for testing".
+- **Never orphan a token.** Disconnecting a bank calls `/item/remove` before deleting the
+  local record, and deleting an account removes every item first. Deleting our copy while
+  Plaid's connection stays live is a bug, not a shortcut — it keeps reading the user's bank.
 - `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` are **server-side only**. Nothing under
   `src/web/` may reference them, and no secret may reach a `VITE_`-prefixed variable — Vite
   inlines those into the public bundle.
@@ -341,6 +378,16 @@ npm run lint && npm run typecheck && npm test
 All three clean. Touching anything under `src/web/` or the service worker also means
 `npm run test:e2e`. If any fail, the task is not done — report the failure output rather
 than working around it.
+
+### CI
+
+GitHub Actions runs the full gate on every push and pull request: `lint`, `typecheck`,
+unit + integration against a `postgres:16` service container, then Playwright e2e at mobile
+viewport. Cache npm and the Playwright browser download; e2e is the slow job, so it runs in
+parallel with the others, not after them.
+
+CI is the authority on whether a gate criterion passes. If CI is red, the task is not done —
+do not merge on the strength of a clean local run, and do not disable a job to get green.
 
 ### Common Tasks
 
@@ -445,6 +492,10 @@ money-trail/
 - API routes are plural nouns under `/api/` — `/api/transactions`, `/api/summary`.
   Responses are `{ data }` or `{ error: { code, message } }`, never a bare array.
 - Migrations: `0003-add-merchant-column.sql` — sequential, never edited once applied.
+- Categories are **Plaid Personal Finance Category primaries** — `SCREAMING_SNAKE` strings
+  like `FOOD_AND_DRINK`, stored as-is (ADR-0005). `NULL` means uncategorized; there is no
+  `OTHER` bucket. Human-readable labels live only in `src/web/` — never in the database,
+  never in a rule file.
 - Money: integer cents everywhere, signed (negative = money out), formatted only in the
   view. Dates: ISO `YYYY-MM-DD` strings at every boundary, `Date` objects only inside
   services.
@@ -471,6 +522,9 @@ money-trail/
 - **Plaid** (`plaid` Node SDK) is the only bank connectivity, added in v4, read-only,
   server-side only, confined to `src/providers/plaid/`. Credentials are handled by Plaid
   Link, never by us.
+- **The app sends no email** (ADR-0009). No verification, no reset links, no notifications.
+  This is what keeps "one outbound destination" true; revisit it when the app has users
+  other than its author, and write an ADR before adding a mail vendor.
 - **Financial data is private.** The server is the only place the ledger lives in full;
   the client holds only what it is currently showing. Plaid is the single permitted
   outbound destination. No telemetry, no analytics, no crash reporting, no third-party

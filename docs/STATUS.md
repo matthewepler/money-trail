@@ -5,7 +5,9 @@
 
 **Last updated:** 2026-09-29 (Postgres client, migration, and transaction repository landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–3 done; step 4 (`src/parsers/chaseCsv.ts`, TDD) next
+**Increment in flight:** steps 1–3 done; step 4 (`src/parsers/chaseCsv.ts`, TDD) next.
+**Before step 4:** migration `0002` for ADR-0006's identity columns, and the repository
+updated to carry them — the parser's output shape depends on it.
 
 ---
 
@@ -98,6 +100,8 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 - ~~Where does this deploy?~~ Answered: local only for now, via Docker Compose. Revisit
   before v3/v4 if a real deploy target is needed.
 - ~~Any visual direction for the UI?~~ Answered: none — plain system-font layout for v1.
+- ~~Category taxonomy?~~ Answered: Plaid PFC primaries, stored verbatim (ADR-0005). The
+  exact list still needs verifying against Plaid's published taxonomy before step 5.
 
 **v2 — before auth work starts:**
 - Session store: Postgres-backed or Redis? Postgres is one less service.
@@ -115,11 +119,30 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 - How is the at-rest encryption key for access tokens managed — KMS, or an env-supplied key?
 - When a transaction arrives from both a CSV import and a sync, which source wins?
 
+## Decisions settled this session
+
+- ADR-0004 — checking accounts only; amounts signed, negative = money out.
+- ADR-0005 — categories are Plaid PFC primaries, stored verbatim (list needs verifying).
+- ADR-0006 — layered transaction identity; never a bare content hash.
+- ADR-0007 — GitHub Actions runs the full gate, e2e included, from now rather than v2.
+- ADR-0008 — "read-only" means no funds movement; `/item/remove` and update-mode Link are
+  allowed.
+- ADR-0009 — the app sends no email; password reset is manual. Passkeys considered and
+  deferred, not rejected.
+- ADR-0010 — self-service account deletion and JSON export land in v2.
+
+**No decisions outstanding.** The pre-planning pass is complete; remaining items are work,
+not questions. Nearest: migration `0002` (ADR-0006 identity columns) and the repository
+update, both before step 4's parser.
+
 ## Session log
 
 
 Newest first. One or two lines per session.
 
+- **2026-09-29** — Decision pass before planning: scope narrowed to checking accounts only
+  and amount sign settled (ADR-0004); category taxonomy set to Plaid PFC primaries
+  (ADR-0005). STATUS synced with what is actually on disk.
 - **2026-09-29** — Scaffolded repo tooling (step 1 of the v1 plan): git init + GitHub
   remote, TypeScript strict, ESLint 9 + Prettier, Vitest, Playwright, `package.json`
   scripts, `docker-compose.yml` for local Postgres, `.env.example`, `README.md`. Confirmed
