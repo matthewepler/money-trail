@@ -21,8 +21,6 @@ None open.
 
 ## Deferred — v1 (current phase, not yet built)
 
-- [v1] Verify the Plaid PFC primary list against Plaid's published taxonomy before the rule
-  engine ships — ADR-0005's list was written from memory and must be checked.
 - [v1] Display-label map for category constants, in `src/web/` only.
 - [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
   `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
@@ -87,6 +85,9 @@ None open.
 - [v4] Disconnect flow: `/item/remove` then delete the local record; test that a failed
   remove does not delete the local record (otherwise the token is orphaned).
 - [v4] Account deletion must remove every Plaid item before deleting the user row.
+- [v4] Plaid defaults new accounts to PFCv2, which adds `OTHER` and `LOAN_DISBURSEMENTS` to
+  the 16 primaries (ADR-0005 addendum). Decide: pin `personal_finance_category_version` to v1,
+  or map `OTHER` → `NULL` and allow `LOAN_DISBURSEMENTS`. Don't let `OTHER` reach the column.
 - [v4] Handle a Plaid primary category we don't know about (they add one) — store it rather
   than dropping it, and surface it as uncategorized in the UI until labeled.
 

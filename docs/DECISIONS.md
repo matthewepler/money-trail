@@ -186,6 +186,16 @@ degrades when their taxonomy changes) and free-form tags (the v1 summary screen 
 stable set to group by).
 
 
+**Verified 2026-10-03.** Read against Plaid's published taxonomy CSV
+(`plaid.com/documents/pfc-taxonomy-all.csv`): the 16 primaries above are exactly PFCv1's
+primaries — the list was right. The decision stands. One thing the verification surfaced:
+the file carries two taxonomies, and per its own note, *new Plaid customers after December
+2025 default to PFCv2*, a superset of v1 that adds `LOAN_DISBURSEMENTS` and `OTHER`. Plaid
+accepts a `personal_finance_category_version` parameter to pin v1. A v4 sync on a new
+account will therefore return `OTHER` unless we pin v1 or map it; `OTHER` collides with
+"no OTHER bucket", so v4 must choose (tracked in `BACKLOG.md`). v1 is unaffected — the CSV
+rule engine assigns only the 16.
+
 ---
 
 ## ADR-0006 — Layered transaction identity, not a content hash

@@ -3,11 +3,10 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-10-03 (step 4, the Chase CSV parser, landed)
+**Last updated:** 2026-10-03 (step 5, the categorizer, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–4 done, plus the ADR-0006 identity follow-up; step 5
-(`src/services/categorizer.ts`, TDD, 100% covered) next. Verify ADR-0005's Plaid PFC
-primary list against Plaid's published taxonomy first (see `BACKLOG.md`).
+**Increment in flight:** steps 1–5 done, plus the ADR-0006 identity follow-up; step 6
+(`src/services/importer.ts` — parser → categorizer → repository) next.
 
 ---
 
@@ -59,7 +58,20 @@ is `fixtures/chase-checking.csv`; the real export stays in the gitignored `docs/
 The parser does not set `source` or `category` — the importer (step 6) does. 45/45 tests
 pass, 75.5% line coverage.
 
-Still missing: categorizer, importer, the Fastify server, and the entire client.
+**Step 5 landed:** `src/services/categorizer.ts` — `categorize(transaction, rules)`, a pure
+first-match-wins engine over `CategoryRule`s (`{ category, patterns: RegExp[], direction? }`),
+returning `null` when nothing matches (ADR-0005: no catch-all). `src/domain/category.ts`
+holds the 16 Plaid PFCv1 primaries as a `Category` type, **verified against Plaid's
+published taxonomy** (ADR-0005 addendum). The shipped rules are plain data in
+`src/services/categoryRules.ts`, ordered by priority; descriptions are the only input
+(the parser drops Chase's `Type` column). Fee, transfer, income and loan rules are
+directional so a keyword buried in a memo can't turn an inbound wire into a "fee" — that bug
+showed up when I ran the rules over the real export locally (233 rows parsed without error;
+72% categorized, the rest `NULL` by design). `categorizer.ts` is at 100% lines/branches/
+functions, and `vitest.config.ts` now enforces that plus the ≥60% overall floor, so
+`npm run test:cov` fails if either regresses. 102/102 tests pass, 76.97% line coverage.
+
+Still missing: importer, the Fastify server, and the entire client.
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -112,7 +124,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 | 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean (empty suite) |
 | 3 | Happy path works end to end in a real mobile browser | ❌ not started |
 | 4 | No horizontal scroll or clipped controls at 375×667 | ❌ not started |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ⏳ 75.5% overall now; categorizer not written yet |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 76.97% overall; `categorizer.ts` 100%, enforced by `test:cov` thresholds |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
 | 7 | `README.md` documents running the app locally in one command | ✅ written (untested — no Docker on this machine yet) |
 
@@ -125,8 +137,8 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 - ~~Where does this deploy?~~ Answered: local only for now, via Docker Compose. Revisit
   before v3/v4 if a real deploy target is needed.
 - ~~Any visual direction for the UI?~~ Answered: none — plain system-font layout for v1.
-- ~~Category taxonomy?~~ Answered: Plaid PFC primaries, stored verbatim (ADR-0005). The
-  exact list still needs verifying against Plaid's published taxonomy before step 5.
+- ~~Category taxonomy?~~ Answered: Plaid PFC primaries, stored verbatim (ADR-0005), and the
+  list is now verified against Plaid's published taxonomy.
 
 **v2 — before auth work starts:**
 - Session store: Postgres-backed or Redis? Postgres is one less service.
@@ -147,7 +159,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 ## Decisions settled this session
 
 - ADR-0004 — checking accounts only; amounts signed, negative = money out.
-- ADR-0005 — categories are Plaid PFC primaries, stored verbatim (list needs verifying).
+- ADR-0005 — categories are Plaid PFC primaries, stored verbatim (list verified 2026-10-03).
 - ADR-0006 — layered transaction identity; never a bare content hash.
 - ADR-0007 — GitHub Actions runs the full gate, e2e included, from now rather than v2.
 - ADR-0008 — "read-only" means no funds movement; `/item/remove` and update-mode Link are
@@ -165,6 +177,11 @@ done; step 4's parser is next and unblocked.
 
 Newest first. One or two lines per session.
 
+- **2026-10-03** — Step 5: verified the PFC primary list against Plaid's CSV (matches PFCv1;
+  new Plaid accounts default to PFCv2 — a v4 decision, now in the backlog). Built
+  `categorize` + `Category` + the default rules test-first; 100% on the engine, enforced by
+  coverage thresholds. Tuned the rules against the real export locally (not committed).
+  Step 6 (importer) is next.
 - **2026-10-03** — Step 4: `parseChaseCsv` + an in-repo CSV tokenizer + `ImportError`,
   test-first against a synthetic fixture shaped like the real export. 45/45 tests pass.
   Step 5 (categorizer) is next.

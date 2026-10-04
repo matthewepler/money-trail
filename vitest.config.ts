@@ -12,6 +12,16 @@ export default defineConfig(({ mode }) => ({
       reporter: ['text', 'html'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/vite-env.d.ts'],
+      skipFull: false,
+      thresholds: {
+        lines: 60,
+        'src/services/categorizer.ts': {
+          lines: 100,
+          branches: 100,
+          functions: 100,
+          statements: 100,
+        },
+      },
     },
   },
 }));
