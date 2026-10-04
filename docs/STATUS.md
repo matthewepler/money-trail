@@ -3,10 +3,11 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-09-29 (migration 0002 + transaction identity landed; step 4 unblocked)
+**Last updated:** 2026-10-03 (step 4, the Chase CSV parser, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–3 done, plus the ADR-0006 identity follow-up; step 4
-(`src/parsers/chaseCsv.ts`, TDD) next — no longer blocked.
+**Increment in flight:** steps 1–4 done, plus the ADR-0006 identity follow-up; step 5
+(`src/services/categorizer.ts`, TDD, 100% covered) next. Verify ADR-0005's Plaid PFC
+primary list against Plaid's published taxonomy first (see `BACKLOG.md`).
 
 ---
 
@@ -45,7 +46,20 @@ one batch, indices continuing correctly across two separate imports, scoping per
 no mixing across sources. Enforcement (skip-on-duplicate import) is still v2 scope — v1 only
 needed the columns and correct indexing to exist from the start, so v4 needs no backfill.
 
-Still missing: parsers, services, the Fastify server, and the entire client.
+**Step 4 landed:** `src/parsers/chaseCsv.ts` (`parseChaseCsv(text, { account })` →
+`Transaction[]`, file order) on top of a small in-repo tokenizer, `src/parsers/csv.ts` — no
+CSV dependency added. Handles the real export's quirks (8 data fields under a 7-column
+header, descriptions padded with runs of spaces, which are collapsed). Amounts are parsed
+from the string to integer cents without touching a float. Errors are `ImportError`
+(new, `src/domain/errors.ts`) with a stable `code` — `IMPORT_UNSUPPORTED_FORMAT` (header
+isn't a Chase checking export, which is how ADR-0004's "parsers reject non-checking
+exports" is enforced), `IMPORT_INVALID_ROW` (message names the row, e.g. "row 3: date
+'2026-09-28' is not in MM/DD/YYYY format"), `IMPORT_MALFORMED_FILE`. The synthetic fixture
+is `fixtures/chase-checking.csv`; the real export stays in the gitignored `docs/sample_csv/`.
+The parser does not set `source` or `category` — the importer (step 6) does. 45/45 tests
+pass, 75.5% line coverage.
+
+Still missing: categorizer, importer, the Fastify server, and the entire client.
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -98,7 +112,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 | 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean (empty suite) |
 | 3 | Happy path works end to end in a real mobile browser | ❌ not started |
 | 4 | No horizontal scroll or clipped controls at 375×667 | ❌ not started |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ⏳ domain + repository covered; categorizer not written yet |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ⏳ 75.5% overall now; categorizer not written yet |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
 | 7 | `README.md` documents running the app locally in one command | ✅ written (untested — no Docker on this machine yet) |
 
@@ -151,6 +165,9 @@ done; step 4's parser is next and unblocked.
 
 Newest first. One or two lines per session.
 
+- **2026-10-03** — Step 4: `parseChaseCsv` + an in-repo CSV tokenizer + `ImportError`,
+  test-first against a synthetic fixture shaped like the real export. 45/45 tests pass.
+  Step 5 (categorizer) is next.
 - **2026-09-29** — Migration `0002-add-transaction-identity.sql` (`source`, `external_id`,
   `occurrence_index`, plus a unique identity index) and `transactionRepository.ts` updated to
   compute `occurrence_index` server-side, against both persisted rows and same-batch

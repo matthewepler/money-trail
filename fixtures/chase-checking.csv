@@ -1,0 +1,9 @@
+Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #
+DEBIT,09/28/2026,"POS DEBIT                CORNER BAKERY             BROOKLYN     NY                                  1234",-4.75,DEBIT_CARD, ,,
+DEBIT,09/28/2026,"POS DEBIT                CORNER BAKERY             BROOKLYN     NY                                  1234",-4.75,DEBIT_CARD, ,,
+CREDIT,09/27/2026,"ORIG CO NAME:ACME PAYROLL      CO ENTRY DESCR:PAYROLL    SEC:PPD",2450.00,ACH_CREDIT, ,,
+DEBIT,09/26/2026,"CHECK 1042",-125.00,CHECK_PAID,,1042,
+DEBIT,09/25/2026,"MARKET, INC. #12 ""DOWNTOWN""",-18.9,MISC_DEBIT, ,,
+DEBIT,09/24/2026,"Online Transfer to SAV ...1234 transaction#: 000000000",-500,ACCT_XFER, ,,
+DEBIT,09/24/2026,"MONTHLY SERVICE FEE",-12,FEE_TRANSACTION, ,,
+DEBIT,09/23/2026,"ATM WITHDRAWAL                       123 MAIN ST",-60.00,ATM, ,,

@@ -49,6 +49,12 @@ None open.
   columns, mixed encodings, empty file, header-only file).
 - [v2] Structured request logging with a request id; never log bodies.
 - [v2] Decide timezone handling for dates that arrive with times attached.
+- [v2] Validate amount magnitude at the parser: `amount_cents` is a Postgres `INTEGER`
+  (max ±$21.4M), so an absurd amount currently fails at insert as a 500, not as a row error.
+- [v2] Chase parser rejects thousands separators (`"1,234.56"`) with a row error rather than
+  guessing; decide whether to accept them once real exports show whether Chase ever emits them.
+- [v2] CSV tokenizer does not strip a UTF-8 BOM (Excel re-saves add one); the header check
+  would then report an unsupported format.
 
 ## Deferred — v3 (installable PWA)
 
