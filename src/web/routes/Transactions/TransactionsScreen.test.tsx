@@ -126,7 +126,7 @@ describe('TransactionsScreen', () => {
     await waitFor(() => expect(session.expire).toHaveBeenCalled());
   });
 
-  it('shows the new rows after an import, starting again from the first page', async () => {
+  it('shows the new rows after an import, and keeps the panel open so the result is visible', async () => {
     vi.mocked(fetchTransactions)
       .mockResolvedValueOnce(page([]))
       .mockResolvedValueOnce(page([txn(1), txn(2)]));
@@ -134,7 +134,6 @@ describe('TransactionsScreen', () => {
     const { container } = renderWithSession(<TransactionsScreen />);
     await screen.findByText(/no transactions yet/i);
 
-    container.querySelector('details')?.setAttribute('open', '');
     fireEvent.change(screen.getByLabelText('CSV file'), {
       target: { files: [new File(['a,b\n'], 'activity.csv', { type: 'text/csv' })] },
     });
@@ -142,5 +141,16 @@ describe('TransactionsScreen', () => {
 
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
     expect(fetchTransactions).toHaveBeenLastCalledWith({ limit: 50, offset: 0 });
+    // The ledger is no longer empty, but the panel must not collapse over its own result.
+    expect(container.querySelector('details')).toHaveAttribute('open');
+    expect(screen.getByRole('status')).toHaveTextContent('Imported 2 transactions.');
+  });
+
+  it('opens the import panel for an empty ledger, and leaves it closed otherwise', async () => {
+    vi.mocked(fetchTransactions).mockResolvedValue(page([txn(1)]));
+    const { container } = renderWithSession(<TransactionsScreen />);
+    await screen.findByRole('listitem');
+
+    expect(container.querySelector('details')).not.toHaveAttribute('open');
   });
 });

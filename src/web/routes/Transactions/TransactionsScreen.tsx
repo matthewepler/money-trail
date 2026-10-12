@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ImportForm } from '../../components/ImportForm.js';
 import { TransactionRow } from '../../components/TransactionRow.js';
 import { useTransactions } from '../../hooks/useTransactions.js';
@@ -7,14 +8,26 @@ import styles from './TransactionsScreen.module.css';
 export function TransactionsScreen() {
   const ledger = useTransactions();
   const empty = ledger.status === 'ready' && ledger.transactions.length === 0;
+  // An empty ledger opens the panel on its own. After an import it must stay open: the ledger
+  // is reloading (so no longer "empty"), and closing would hide the import's own result.
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <>
       <h1 className={styles.title}>Transactions</h1>
 
-      <details className={styles.import} open={empty || undefined}>
+      <details
+        className={styles.import}
+        open={importOpen || empty}
+        onToggle={(event) => setImportOpen(event.currentTarget.open)}
+      >
         <summary>Import a CSV</summary>
-        <ImportForm onImported={ledger.reload} />
+        <ImportForm
+          onImported={() => {
+            setImportOpen(true);
+            ledger.reload();
+          }}
+        />
       </details>
 
       {ledger.status === 'loading' && (
