@@ -130,7 +130,7 @@ describe('parseChaseCsv', () => {
     expectImportError(
       () => parseChaseCsv(csvWithRows(row({ date: '02/30/2026' })), { account }),
       'IMPORT_INVALID_ROW',
-      /row 2: date/,
+      /row 2: date '02\/30\/2026' is not a real calendar date/,
     );
   });
 

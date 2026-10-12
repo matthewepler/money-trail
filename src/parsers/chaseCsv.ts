@@ -1,5 +1,5 @@
 import { ImportError, ValidationError } from '../domain/errors.js';
-import { createTransaction, type Transaction } from '../domain/transaction.js';
+import { createTransaction, isRealCalendarDate, type Transaction } from '../domain/transaction.js';
 import { parseCsv } from './csv.js';
 
 const EXPECTED_HEADER = [
@@ -21,7 +21,11 @@ function parseDate(raw: string): string {
     throw new ValidationError(`date '${raw}' is not in MM/DD/YYYY format`);
   }
   const [, month, day, year] = match;
-  return `${year}-${month}-${day}`;
+  const iso = `${year}-${month}-${day}`;
+  // Report the date as it appears in the file, not our converted form of it.
+  if (!isRealCalendarDate(iso))
+    throw new ValidationError(`date '${raw}' is not a real calendar date`);
+  return iso;
 }
 
 // Amounts never pass through a float: '-18.9' must be exactly -1890 cents.
