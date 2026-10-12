@@ -43,6 +43,12 @@ None open.
   (nothing removes them today). The `sessions.user_id` index already exists.
 - [v1] `npm run db:reset` is in `package.json` and `CLAUDE.md` but `src/db/reset.ts` does not
   exist yet. Write it (drop, migrate, seed) or remove the script.
+- [v2] Summary range presets (this month, last month, last 30 days) so a phone user isn't
+  hand-editing two date fields; the default is the current month only.
+- [v2] Filter or search the transaction list (date range, category, text). v1 pages the whole
+  ledger newest-first and nothing else.
+- [v2] Re-importing a file duplicates its rows (no de-dup until ADR-0006's layers land); the
+  import form clears the chosen file after success as a stopgap.
 - [v2] Multi-user signup, argon2id password hashing, session rotation on login, logout everywhere.
 - [v2] `DELETE /api/account` — password re-entry, cascade to transactions, session
   destroyed. Test asserts zero rows remain in every table (ADR-0010).

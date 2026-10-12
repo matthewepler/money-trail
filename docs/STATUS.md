@@ -3,181 +3,72 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-10-11 (step 7, the server and routes, landed)
+**Last updated:** 2026-10-11 (step 8, the client, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–7 done, plus the ADR-0006 identity follow-up; step 8
-(the Vite/React client: login, transaction list, spending summary, mobile-first at 375px) next.
+**Increment in flight:** steps 1–8 done; step 9 (Playwright e2e at mobile viewport) and the CI
+workflow (ADR-0007) remain before the v1 gate can be called.
 
 ---
 
 ## Where things stand
 
-Git repo initialized, remote set to `git@github.com:matthewepler/money-trail.git`. Tooling
-scaffolded: TypeScript strict (single root `tsconfig.json`), ESLint 9 flat config + Prettier,
-Vitest, Playwright, `package.json` scripts per `CLAUDE.md`. `npm run lint && npm run
-typecheck && npm test` all pass clean on the empty suite. `docker-compose.yml` runs local
-Postgres 16; `.env.example` added.
+The v1 slice works end to end: sign in, import a Chase checking CSV, see the ledger, see
+spending by category. 272 tests pass (0 skipped), 90.89% line coverage, `categorizer.ts` at
+100% (enforced by `npm run test:cov`), lint/typecheck clean, `npm audit` 0 vulnerabilities.
 
-Since then: `src/domain/transaction.ts` + tests and `src/domain/errors.ts` (now also
-`ConfigError`) are committed. Docker Desktop is installed and running; `docker compose up -d`
-brings up Postgres 16 (confirmed healthy). Migration `0001-create-users-and-transactions.sql`
-is written and applies cleanly (`users`, `transactions` with a `user_id` FK and a
-`(user_id, date)` index) via a small custom runner (`src/db/migrate.ts` — no migration
-framework dependency). `src/repositories/transactionRepository.ts` is built test-first
-against a real local Postgres: `insertTransactions`, `listTransactions` (date-range filter,
-newest-first), `summarizeByCategory`, every method scoped by `userId` first. Integration
-tests in `tests/integration/transactionRepository.test.ts` include a cross-user isolation
-check (user A never sees user B's rows) — 13/13 tests pass, lint/typecheck clean.
+**As built.** Postgres 16 in Docker Compose; Fastify 5 API on `127.0.0.1:3000`; React 18 +
+Vite client (React Router 7, CSS modules) proxying `/api`. Migrations `0001` users and
+transactions, `0002` transaction identity (ADR-0006), `0003` sessions. Pipeline:
+`parseChaseCsv` → `categorize` (ordered regex rules, Plaid PFC categories) → `insertTransactions`,
+all-or-nothing per file. API: `POST/GET/DELETE /api/session`, then behind the session guard
+`POST /api/imports`, `GET /api/transactions` (paged), `GET /api/summary` (spending only,
+ADR-0011). Client: sign-in, Transactions (paged list + CSV import), Summary (date range,
+total, per-category bars, "Transfers out (not matched)" line). Layering is lint-enforced: the
+client imports only `src/domain/`, and `fetch` lives only in `src/web/api/`.
 
-Local env: `.env` (gitignored) mirrors `.env.example`; Node scripts load it via Node's native
-`--env-file` flag (no `dotenv` dependency); Vitest loads it into `process.env` via Vite's
-`loadEnv` in `vitest.config.ts` so integration tests can reach the DB.
+**Running it.** `docker compose up -d` (Docker Desktop must be open; its CLI is not on `PATH`
+here — use `/Applications/Docker.app/Contents/Resources/bin/docker`), `cp .env.example .env`,
+set `SEED_PASSWORD`, `npm run db:migrate`, `npm run seed`, `npm run dev`. `npm test` uses its
+own `money_trail_test` database (created automatically) and never touches dev data.
 
-**ADR-0006 follow-up landed:** migration `0002-add-transaction-identity.sql` adds `source`
-(not null), `external_id` (nullable, unique per source), and `occurrence_index` (not null),
-plus a unique index on `(user_id, source, account, date, amount_cents, description,
-occurrence_index)` as a safety net. `StoredTransaction` and `transactionRepository.ts` carry
-the new fields; `insertTransactions` now computes `occurrence_index` itself in a single
-query — against rows already persisted for the user *and* duplicates within the same
-batch — via `ROW_NUMBER()` over the batch joined against a per-identity count of existing
-rows. Callers no longer supply it. 18/18 tests pass, including: sequential indices within
-one batch, indices continuing correctly across two separate imports, scoping per user, and
-no mixing across sources. Enforcement (skip-on-duplicate import) is still v2 scope — v1 only
-needed the columns and correct indexing to exist from the start, so v4 needs no backfill.
-
-**Step 4 landed:** `src/parsers/chaseCsv.ts` (`parseChaseCsv(text, { account })` →
-`Transaction[]`, file order) on top of a small in-repo tokenizer, `src/parsers/csv.ts` — no
-CSV dependency added. Handles the real export's quirks (8 data fields under a 7-column
-header, descriptions padded with runs of spaces, which are collapsed). Amounts are parsed
-from the string to integer cents without touching a float. Errors are `ImportError`
-(new, `src/domain/errors.ts`) with a stable `code` — `IMPORT_UNSUPPORTED_FORMAT` (header
-isn't a Chase checking export, which is how ADR-0004's "parsers reject non-checking
-exports" is enforced), `IMPORT_INVALID_ROW` (message names the row, e.g. "row 3: date
-'2026-09-28' is not in MM/DD/YYYY format"), `IMPORT_MALFORMED_FILE`. The synthetic fixture
-is `fixtures/chase-checking.csv`; the real export stays in the gitignored `docs/sample_csv/`.
-The parser does not set `source` or `category` — the importer (step 6) does. 45/45 tests
-pass, 75.5% line coverage.
-
-**Step 5 landed:** `src/services/categorizer.ts` — `categorize(transaction, rules)`, a pure
-first-match-wins engine over `CategoryRule`s (`{ category, patterns: RegExp[], direction? }`),
-returning `null` when nothing matches (ADR-0005: no catch-all). `src/domain/category.ts`
-holds the 16 Plaid PFCv1 primaries as a `Category` type, **verified against Plaid's
-published taxonomy** (ADR-0005 addendum). The shipped rules are plain data in
-`src/services/categoryRules.ts`, ordered by priority; descriptions are the only input
-(the parser drops Chase's `Type` column). Fee, transfer, income and loan rules are
-directional so a keyword buried in a memo can't turn an inbound wire into a "fee" — that bug
-showed up when I ran the rules over the real export locally (233 rows parsed without error;
-72% categorized, the rest `NULL` by design). `categorizer.ts` is at 100% lines/branches/
-functions, and `vitest.config.ts` now enforces that plus the ≥60% overall floor, so
-`npm run test:cov` fails if either regresses. 102/102 tests pass, 76.97% line coverage.
-
-**Step 6 landed:** `src/services/importer.ts` — `importChaseCsv(deps, userId, { text,
-account })` parses, categorizes with the default (or injected) rules, stamps each row
-`source: 'chase-csv'` / `externalId: null`, and stores them through an injected
-`insertTransactions`, returning `{ imported, uncategorized }`. The file is fully parsed
-before anything is written and the write is one statement, so a bad row rejects the whole
-file and leaves the ledger untouched. A blank account label is a `ValidationError`. Unit tests
-use a fake repository; `tests/integration/importer.test.ts` runs the fixture through the real
-repository and Postgres, including two identical same-day rows both surviving with
-`occurrence_index` 1 and 2. Duplicate *re-imports* are still not prevented (v2). The summary
-route must apply ADR-0011's spending/transfer classification (BACKLOG, v1).
-
-Test infra: the integration files share one database and truncate it between tests, which
-made results flaky once there were two of them, so `vitest.config.ts` now runs test files
-serially (`fileParallelism: false`). Postgres must be running (`docker compose up -d`, which
-needs Docker Desktop open) before `npm test`. 111/111 tests pass, 78.26% line coverage.
-
-**Step 7 landed** as eight small commits. `buildApp()` (Fastify 5) has one error handler that
-maps typed errors to `{ error: { code, message } }` — ValidationError 400, AuthError 401,
-ImportError 422, Fastify's own 4xx kept, anything else a generic 500 that leaks nothing.
-`registerRoutes()` wires the routes; `composition.ts` is the one place real repositories meet
-services, so integration tests run the production wiring. Routes: `POST/GET/DELETE
-/api/session` (login, status, logout — sessions are server-side rows keyed by the hash of a
-cookie token, argon2id passwords, see ADR-0012), then behind the session guard
-`POST /api/imports` (text/csv body, `?account=`), `GET /api/transactions`
-(`from`/`to`/`limit`/`offset`, paged), and `GET /api/summary` (`from`/`to` required; spending
-only per ADR-0011, transfers out on a separate line). `npm run seed` creates the one account
-from `SEED_EMAIL`/`SEED_PASSWORD`. The API listens on `127.0.0.1:3000` only. Every route has
-a test that another user's session cannot reach the data, and that a `userId` in the request
-is ignored. Also fixed: the integration tests were truncating the *dev* database (they wiped
-the seeded account); they now run against `money_trail_test`. 194/194 tests pass, 84.98% line
-coverage. Verified by hand over real HTTP with `curl` against the seeded account.
-
-For step 8: the client has to flip the summary's negative cents to positive spend exactly
-once, treat `category: null` as "Uncategorized", and keep category labels in `src/web/`
-only. Vite must proxy `/api` to `127.0.0.1:3000` so the cookie is same-origin.
-
-Still missing: the entire client (nothing exists under `src/web/` yet).
-
-**Decisions made this session:**
-- Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
-- v1 CSV format: **Chase** (`Details, Posting Date, Description, Amount, Type, Balance,
-  Check or Slip #`; amount is already signed). Sample real export in `docs/sample_csv/`
-  (gitignored — never commit real financial data). A synthetic fixture derived from this
-  shape still needs to land in `fixtures/` before the parser is written.
-- Schwab sample also provided (`docs/sample_csv/schwab.csv`, separate Withdrawal/Deposit
-  columns, dollar-formatted strings) — deferred to v2 as the second format, already tracked
-  in `BACKLOG.md`.
-- No visual direction — plain system-font layout for v1.
-
-**Note:** Docker Desktop is now installed and its daemon is running. The `docker` CLI isn't
-on the default shell `PATH` on this machine — invoke it via
-`/Applications/Docker.app/Contents/Resources/bin/docker`, or add that directory to `PATH`.
+**Not built yet:** Playwright e2e, the GitHub Actions workflow, `npm run db:reset`
+(the script exists but its file doesn't — see `BACKLOG.md`).
 
 **Phase map (revised 2026-09-08):** v1 core web app → v2 resilience + auth + isolation →
-v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. The earlier
-CLI/local-SQLite plan is superseded; see `DECISIONS.md` ADR-0003.
+v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. See ADR-0003.
 
 ## Next step
 
-Scaffold the v1 skeleton, in this order, one commit each:
+9. Playwright e2e at mobile viewport covering the happy path (sign in → import the fixture →
+   list → summary → sign out), against the `_test` database and a seeded user.
+10. GitHub Actions: lint + typecheck + unit/integration on a `postgres:16` service, e2e as a
+    parallel job (ADR-0007).
+11. Close the gate: try the app on a real phone (`npm run dev -- --host`, then
+    `http://<lan-ip>:5173`) and settle the README question below.
 
-1. Repo tooling: TypeScript strict, ESLint/Prettier, Vitest, Playwright, and the
-   `package.json` scripts listed in `CLAUDE.md`. Confirm
-   `npm run lint && npm run typecheck && npm test` runs clean on an empty suite.
-2. `src/domain/transaction.ts` — normalized transaction type, money as integer cents.
-   Browser-safe: no Node built-ins. Test first.
-3. Postgres client + first migration + `src/repositories/transactionRepository.ts`
-   (every method takes `userId` first, even in v1 with one seeded user).
-4. `src/parsers/chaseCsv.ts` — one bank CSV format → domain transactions. Test first,
-   against a fixture in `fixtures/`.
-5. `src/services/categorizer.ts` — rule-based, from a static rules file. 100% covered.
-6. `src/services/importer.ts` — wire parser → categorizer → repository.
-7. Fastify bootstrap + session login for the seeded account + `POST /api/imports`,
-   `GET /api/transactions`, `GET /api/summary`.
-8. Vite/React client: login, transaction list, summary. Mobile-first at 375px.
-9. Playwright e2e at mobile viewport covering the full happy path.
-
-Do not start v2 (multi-user auth, dedupe, validation hardening, OFX) until the v1 gate is
-met; nothing from v3 (manifest, service worker, offline) or v4 (Plaid) until v2's gate is
-met — a repeated sync over overlapping date ranges is only safe once dedupe is correct.
+Do not start v2 until the v1 gate is met; nothing from v3 or v4 until v2's gate is met — a
+repeated sync over overlapping date ranges is only safe once dedupe is correct.
 
 ## v1 gate criteria
 
 | # | Criterion | Status |
 |---|-----------|--------|
-| 1 | `npm test` passes, zero failures, zero skipped | ✅ passes (empty suite) |
-| 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean (empty suite) |
-| 3 | Happy path works end to end in a real mobile browser | ❌ not started |
-| 4 | No horizontal scroll or clipped controls at 375×667 | ❌ not started |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 78.26% overall; `categorizer.ts` 100%, enforced by `test:cov` thresholds |
+| 1 | `npm test` passes, zero failures, zero skipped | ✅ 272 pass, none skipped |
+| 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean |
+| 3 | Happy path works end to end in a real mobile browser | ⏳ done by hand in the in-app browser (emulated 375×812) on the live stack; not automated yet (step 9) and not on a physical phone |
+| 4 | No horizontal scroll or clipped controls at 375×667 | ✅ measured on all three screens at 375×667, 768 and 1280: no overflow, every target ≥44px, tab bar never covers content; to be asserted in e2e |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 90.89%; `categorizer.ts` 100%, enforced by thresholds |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
-| 7 | `README.md` documents running the app locally in one command | ✅ written (untested — no Docker on this machine yet) |
+| 7 | `README.md` documents running the app locally in one command | ⏳ documented as a short setup then `npm run dev` — see question below |
 
 ## Open questions for a human
 
-**v1 — needed now:**
-- ~~Which bank CSV format is v1's single supported format?~~ Answered: Chase. A synthetic
-  fixture built from `docs/sample_csv/chase.csv`'s shape still needs to land in `fixtures/`
-  before step 4 (the parser) is written.
-- ~~Where does this deploy?~~ Answered: local only for now, via Docker Compose. Revisit
-  before v3/v4 if a real deploy target is needed.
-- ~~Any visual direction for the UI?~~ Answered: none — plain system-font layout for v1.
-- ~~Category taxonomy?~~ Answered: Plaid PFC primaries, stored verbatim (ADR-0005), and the
-  list is now verified against Plaid's published taxonomy.
+**v1 — before closing the gate:**
+- Gate item 7 says "one command". The README documents six first-time setup commands, then
+  `npm run dev`. Is that enough, or should there be a single `npm run setup` that starts
+  Postgres, migrates, and seeds?
 
 **v2 — before auth work starts:**
-- ~~Session store: Postgres-backed or Redis?~~ Answered: Postgres (ADR-0012).
 - Signup open to anyone, or invite-only for now?
 
 **v3 — before PWA work starts:**
@@ -192,79 +83,38 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 - How is the at-rest encryption key for access tokens managed — KMS, or an env-supplied key?
 - When a transaction arrives from both a CSV import and a sync, which source wins?
 
-## Decisions settled this session
+## Decisions settled
 
 - ADR-0004 — checking accounts only; amounts signed, negative = money out.
 - ADR-0005 — categories are Plaid PFC primaries, stored verbatim (list verified 2026-10-03).
 - ADR-0006 — layered transaction identity; never a bare content hash.
 - ADR-0007 — GitHub Actions runs the full gate, e2e included, from now rather than v2.
-- ADR-0008 — "read-only" means no funds movement; `/item/remove` and update-mode Link are
-  allowed.
-- ADR-0009 — the app sends no email; password reset is manual. Passkeys considered and
-  deferred, not rejected.
+- ADR-0008 — "read-only" means no funds movement; `/item/remove` and update-mode Link allowed.
+- ADR-0009 — the app sends no email; password reset is manual.
 - ADR-0010 — self-service account deletion and JSON export land in v2.
-
-- ADR-0011 — the primary view is spending; income and loan payments are tracked separately
-  in a cash-flow view; an outbound transfer with no matching deposit in the app is spending.
-
-ADR-0011 also settled: v1's summary shows spending by category plus a separate "Transfers
-out (not matched)" line outside the total; transfer matching lands in v2 with the second bank
-format; card spending stays out of scope until after v2.
-
-**No decisions outstanding.** Step 6 (the importer) is next.
+- ADR-0011 — the primary view is spending; income and loan payments are a separate cash-flow
+  view; an outbound transfer with no matching deposit is spending. v1 shows unmatched
+  transfers on their own line; matching lands in v2; card spending stays out of scope.
+- ADR-0012 — Postgres sessions (token hash only), `text/csv` uploads, loopback-only API,
+  tests on a `_test` database.
+- v1 CSV format is Chase (Schwab is the v2 second format); deploy is local Docker only;
+  no visual direction (plain system-font layout).
 
 ## Session log
 
+Newest first.
 
-Newest first. One or two lines per session.
-
-- **2026-10-11** — Step 7: the Fastify server in small commits — typed-error handler, argon2id
-  login with Postgres-backed sessions, the session guard, and the imports / transactions /
-  summary routes. Found that `npm test` was wiping the dev database and moved tests to a
-  `_test` database. ADR-0012 records the server choices. Step 8 (client) is next.
-- **2026-10-11** — Step 6: `importChaseCsv` (parser → categorizer → repository, injected),
-  unit-tested with a fake and integration-tested against Postgres. Found and fixed flaky
-  cross-file DB interference by running test files serially. Docker Desktop had stopped
-  between sessions; restarted it. Step 7 (server + routes) is next.
-- **2026-10-11** — Product direction: the app is about spending. Income and loan payments go
-  in a separate cash-flow view; an unmatched outbound transfer counts as spending (ADR-0011).
-  Transfer matching moves out of v5 into v2; v1 shows unmatched transfers on a separate line.
-  No code changed.
-- **2026-10-03** — Step 5: verified the PFC primary list against Plaid's CSV (matches PFCv1;
-  new Plaid accounts default to PFCv2 — a v4 decision, now in the backlog). Built
-  `categorize` + `Category` + the default rules test-first; 100% on the engine, enforced by
-  coverage thresholds. Tuned the rules against the real export locally (not committed).
-  Step 6 (importer) is next.
-- **2026-10-03** — Step 4: `parseChaseCsv` + an in-repo CSV tokenizer + `ImportError`,
-  test-first against a synthetic fixture shaped like the real export. 45/45 tests pass.
-  Step 5 (categorizer) is next.
-- **2026-09-29** — Migration `0002-add-transaction-identity.sql` (`source`, `external_id`,
-  `occurrence_index`, plus a unique identity index) and `transactionRepository.ts` updated to
-  compute `occurrence_index` server-side, against both persisted rows and same-batch
-  duplicates — the ADR-0006 follow-up required before step 4. 18/18 tests pass. Step 4
-  (`src/parsers/chaseCsv.ts`) is next and unblocked.
-- **2026-09-29** — Decision pass before planning: scope narrowed to checking accounts only
-  and amount sign settled (ADR-0004); category taxonomy set to Plaid PFC primaries
-  (ADR-0005). STATUS synced with what is actually on disk.
-- **2026-09-29** — Scaffolded repo tooling (step 1 of the v1 plan): git init + GitHub
-  remote, TypeScript strict, ESLint 9 + Prettier, Vitest, Playwright, `package.json`
-  scripts, `docker-compose.yml` for local Postgres, `.env.example`, `README.md`. Confirmed
-  `npm run lint && npm run typecheck && npm test` clean on the empty suite. Answered the
-  three open v1 questions: Chase CSV format, local Docker deploy, no visual direction.
-  Docker is not installed on this machine yet — flagged, not installed automatically.
-- **2026-09-29** — Scope narrowed to everyday spending across multiple checking accounts;
-  credit cards, loans, and investments out (ADR-0004). Amount sign settled: negative =
-  money out. Working through the pre-planning decision list, one at a time.
-- **2026-09-29** — Docker Desktop installed; local Postgres up via `docker compose`. Step 3
-  landed: `src/db/client.ts`, migration runner + first migration (`users`, `transactions`),
-  and `src/repositories/transactionRepository.ts` (insert, list with date-range filtering,
-  category summary), all scoped by `userId`, TDD against a real local database. 13/13 tests
-  pass, including a cross-user isolation check.
-- **2026-09-08** — Retargeted the project from a local CLI to a web app + installable PWA.
-  Rewrote `CLAUDE.md` (five phases, client/server layering, data-isolation rules, mobile and
-  service-worker rules, Postgres over SQLite, Plaid secrets server-side only). Added
-  ADR-0003; superseded ADR-0001. Bank sync moved v3 → v4.
-- **2026-09-08** — Added read-only Plaid bank sync to the plan as a phase of its own, with
-  Link owning credential entry (ADR-0002).
-- **2026-09-08** — Wrote the first `CLAUDE.md` (phase strategy, gates, layering, workflow)
-  and seeded `docs/STATUS.md` and `docs/BACKLOG.md`. No code yet.
+- **2026-10-11** — Step 8: the client in small commits — Vite/React scaffold, typed API
+  client, session state + sign-in + shell, formatting (one place flips the sign), Transactions
+  (paged, with CSV import), Summary. Verified in the browser at 375/768/1280 against the live
+  server, plus a contrast audit (all AA, light and dark). Found and fixed a broken
+  `npm run dev:api`, a misleading parser date message, and cleared `npm audit`. Step 9 next.
+- **2026-10-11** — Steps 6–7: the importer and the Fastify server (login, sessions, imports,
+  transactions, summary). Tests were wiping the dev database; moved them to `_test`.
+  ADR-0011 (spending view) and ADR-0012 (server choices) recorded.
+- **2026-10-03** — Steps 4–5: Chase CSV parser and the categorizer; verified the Plaid PFC
+  list (new Plaid accounts default to PFCv2 — a v4 decision, in the backlog).
+- **2026-09-29** — Repo tooling, domain type, Postgres + repository, transaction identity
+  (ADR-0006), and the scope decisions (ADR-0004, 0005).
+- **2026-09-08** — Retargeted from a CLI to a web app + PWA (ADR-0003); wrote `CLAUDE.md` and
+  the first docs; added read-only Plaid sync as its own phase (ADR-0002).
