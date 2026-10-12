@@ -1,35 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { upsertUser } from '../../src/repositories/userRepository.js';
-import { buildApp } from '../../src/server/app.js';
-import { createAppDeps } from '../../src/server/composition.js';
-import { registerRoutes } from '../../src/server/routes/index.js';
-import { hashPassword } from '../../src/services/passwords.js';
+import { SESSION_COOKIE as COOKIE } from '../../src/server/middleware/session.js';
+import {
+  buildTestApp,
+  createUser,
+  signIn as signInAs,
+  TEST_PASSWORD as PASSWORD,
+} from '../helpers/app.js';
 import { truncateAll } from '../helpers/db.js';
 
 const EMAIL = 'owner@example.com';
-const PASSWORD = 'right-password-123';
-const COOKIE = 'mt_session';
 
-async function buildTestApp(options: { secureCookies?: boolean } = {}) {
-  const app = buildApp();
-  await registerRoutes(app, { ...createAppDeps(), secureCookies: options.secureCookies ?? false });
-  await app.ready();
-  return app;
-}
-
-async function signIn(app: Awaited<ReturnType<typeof buildTestApp>>) {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/session',
-    payload: { email: EMAIL, password: PASSWORD },
-  });
-  const cookie = response.cookies.find((c) => c.name === COOKIE);
-  return { response, token: cookie?.value ?? '' };
-}
+const signIn = (app: Awaited<ReturnType<typeof buildTestApp>>) => signInAs(app, EMAIL);
 
 beforeEach(async () => {
   await truncateAll();
-  await upsertUser(EMAIL, await hashPassword(PASSWORD));
+  await createUser(EMAIL);
 });
 
 describe('POST /api/session', () => {
