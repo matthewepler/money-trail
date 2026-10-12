@@ -11,11 +11,6 @@ Critical or high bugs block the current gate.
 
 ## Bugs
 
-- [medium] `npm audit` reports 3 vulnerabilities, all in dev tooling (`concurrently` →
-  `shell-quote`, critical; `source-map-js` under Vite, high). None ship in the server or the
-  built client. `npm audit fix` is available; do it as its own change.
-
-<!-- Example of the shape once there is code:
 - [high] Amounts with a trailing `CR` suffix parse as NaN instead of a negative — `parsers/chaseCsv.ts`, fixture `chase-credit-note.csv`.
 -->
 
