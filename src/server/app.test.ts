@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ImportError, ValidationError } from '../domain/errors.js';
+import { AuthError, ImportError, ValidationError } from '../domain/errors.js';
 import { buildApp } from './app.js';
 
 async function appWithRoutes() {
@@ -9,6 +9,9 @@ async function appWithRoutes() {
   });
   app.get('/import', async () => {
     throw new ImportError('IMPORT_INVALID_ROW', 'row 3: bad date');
+  });
+  app.get('/auth', async () => {
+    throw new AuthError('AUTH_REQUIRED', 'Sign in required');
   });
   app.get('/unexpected', async () => {
     throw new Error('connect ECONNREFUSED postgres://money_trail:hunter2@localhost:5432/db');
@@ -38,6 +41,17 @@ describe('buildApp error handling', () => {
     expect(response.statusCode).toBe(422);
     expect(response.json()).toEqual({
       error: { code: 'IMPORT_INVALID_ROW', message: 'row 3: bad date' },
+    });
+  });
+
+  it('maps an AuthError to 401, keeping its code', async () => {
+    const app = await appWithRoutes();
+
+    const response = await app.inject({ method: 'GET', url: '/auth' });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: { code: 'AUTH_REQUIRED', message: 'Sign in required' },
     });
   });
 

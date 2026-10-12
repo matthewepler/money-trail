@@ -1,4 +1,4 @@
-import { ImportError, ValidationError } from '../domain/errors.js';
+import { AuthError, ImportError, ValidationError } from '../domain/errors.js';
 
 export type HttpErrorResponse = {
   status: number;
@@ -29,6 +29,7 @@ function fastifyClientStatus(error: unknown): number | null {
 export function toHttpError(error: unknown): HttpErrorResponse {
   if (error instanceof ValidationError) return respond(400, error.code, error.message);
   if (error instanceof ImportError) return respond(422, error.code, error.message);
+  if (error instanceof AuthError) return respond(401, error.code, error.message);
 
   const clientStatus = fastifyClientStatus(error);
   if (clientStatus !== null && error instanceof Error) {
