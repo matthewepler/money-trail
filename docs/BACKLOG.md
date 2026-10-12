@@ -11,7 +11,9 @@ Critical or high bugs block the current gate.
 
 ## Bugs
 
-None open.
+- [medium] `npm audit` reports 3 vulnerabilities, all in dev tooling (`concurrently` →
+  `shell-quote`, critical; `source-map-js` under Vite, high). None ship in the server or the
+  built client. `npm audit fix` is available; do it as its own change.
 
 <!-- Example of the shape once there is code:
 - [high] Amounts with a trailing `CR` suffix parse as NaN instead of a negative — `parsers/chaseCsv.ts`, fixture `chase-credit-note.csv`.
@@ -38,6 +40,12 @@ None open.
 - [v2] Cash-flow view (ADR-0011): income, loan payments, and spending, reconciling to net
   cash flow. Proposed placement; not a v1 screen.
 
+- [v2] Login timing: an unknown email returns faster than a wrong password (no argon2 run), so
+  response time reveals which emails exist. Verify against a dummy hash when the user is missing.
+- [v2] Sessions: rotate the token on login, add logout-everywhere, and delete expired rows
+  (nothing removes them today). The `sessions.user_id` index already exists.
+- [v1] `npm run db:reset` is in `package.json` and `CLAUDE.md` but `src/db/reset.ts` does not
+  exist yet. Write it (drop, migrate, seed) or remove the script.
 - [v2] Multi-user signup, argon2id password hashing, session rotation on login, logout everywhere.
 - [v2] `DELETE /api/account` — password re-entry, cascade to transactions, session
   destroyed. Test asserts zero rows remain in every table (ADR-0010).

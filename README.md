@@ -9,15 +9,18 @@ Requires Node 20+ (`.nvmrc` pins this — `nvm use` if you have nvm) and Docker 
 database.
 
 ```bash
-docker compose up -d   # starts Postgres on localhost:5432
-cp .env.example .env
+docker compose up -d   # starts Postgres on localhost:5432 (Docker Desktop must be running)
+cp .env.example .env   # then set SEED_PASSWORD in .env (12+ characters; this is your login)
 npm install
 npm run db:migrate
-npm run seed
+npm run seed           # creates the one account you sign in with
 npm run dev             # api on :3000, client on :5173
 ```
 
 Open `http://localhost:5173`.
+
+`npm test` uses its own `money_trail_test` database, created automatically, so it never
+touches your data.
 
 ## Development
 

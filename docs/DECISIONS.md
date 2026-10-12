@@ -418,3 +418,40 @@ line that is *not* added into the spending total; matching, and folding unmatche
 into spending, lands in v2 with the second bank format, where a match is possible. (b) Card
 spending stays out of scope for now (ADR-0004 stands): card payments show in the cash-flow
 view, and the question is revisited after v2. The cash-flow view itself is not a v1 screen.
+
+
+---
+
+## ADR-0012 — Server shape: Postgres sessions, text/csv uploads, loopback bind
+
+**Date:** 2026-10-11 · **Status:** accepted
+
+**Context.** Step 7 forced several choices that `CLAUDE.md` left open. They are small
+individually but each would be expensive to discover later.
+
+**Decision.**
+
+1. **Sessions live in Postgres**, not a signed cookie and not Redis. The cookie holds a random
+   32-byte token; the `sessions` table stores only its SHA-256, so a leaked database yields
+   nothing replayable. A signed stateless cookie cannot be revoked, which v2's "logout
+   everywhere" needs; Redis is another service to run. This settles the v2 session-store
+   question. Sessions expire after 30 days, absolute.
+2. **The cookie is `httpOnly; SameSite=Lax`, and `Secure` only when `NODE_ENV=production`.**
+   `Secure` cookies are dropped by Safari over plain `http://`, which would break the
+   phone-on-LAN testing this project relies on. Production must run behind HTTPS.
+3. **Imports are a `text/csv` request body with `?account=`**, up to 5 MB — not multipart. The
+   browser reads the chosen file and sends its text. There is no multipart parser to get wrong
+   and no extra dependency; file-level hashing (ADR-0006) can hash the same string.
+4. **The API binds to `127.0.0.1` only.** It serves a private ledger, and the Vite dev server
+   proxies to it. Reaching it from a phone goes through the dev server, not around it.
+5. **`userRepository` and `sessionRepository` are the exception to "every repository method
+   takes `userId` first"**: they run before a session exists to supply one. Every other
+   repository still scopes by it, and `request.userId` is set in exactly one place, the
+   session guard.
+6. **Tests run against `<database>_test`**, created and migrated on first run, and
+   `truncateAll()` refuses any database not named `*_test`. Added after a test run deleted the
+   seeded dev account from the shared database.
+
+**Consequences.** v2 adds session rotation, logout-everywhere (`DELETE ... WHERE user_id`, the
+index exists) and expired-row cleanup on top of this rather than replacing it. Phone testing
+works over plain HTTP. Playwright (step 9) must use the `_test` database too.

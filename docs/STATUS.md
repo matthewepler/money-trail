@@ -3,11 +3,10 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-10-11 (step 6, the importer, landed)
+**Last updated:** 2026-10-11 (step 7, the server and routes, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–6 done, plus the ADR-0006 identity follow-up; step 7
-(Fastify bootstrap, session login for the seeded account, `POST /api/imports`,
-`GET /api/transactions`, `GET /api/summary`) next.
+**Increment in flight:** steps 1–7 done, plus the ADR-0006 identity follow-up; step 8
+(the Vite/React client: login, transaction list, spending summary, mobile-first at 375px) next.
 
 ---
 
@@ -88,7 +87,27 @@ made results flaky once there were two of them, so `vitest.config.ts` now runs t
 serially (`fileParallelism: false`). Postgres must be running (`docker compose up -d`, which
 needs Docker Desktop open) before `npm test`. 111/111 tests pass, 78.26% line coverage.
 
-Still missing: the Fastify server and the entire client.
+**Step 7 landed** as eight small commits. `buildApp()` (Fastify 5) has one error handler that
+maps typed errors to `{ error: { code, message } }` — ValidationError 400, AuthError 401,
+ImportError 422, Fastify's own 4xx kept, anything else a generic 500 that leaks nothing.
+`registerRoutes()` wires the routes; `composition.ts` is the one place real repositories meet
+services, so integration tests run the production wiring. Routes: `POST/GET/DELETE
+/api/session` (login, status, logout — sessions are server-side rows keyed by the hash of a
+cookie token, argon2id passwords, see ADR-0012), then behind the session guard
+`POST /api/imports` (text/csv body, `?account=`), `GET /api/transactions`
+(`from`/`to`/`limit`/`offset`, paged), and `GET /api/summary` (`from`/`to` required; spending
+only per ADR-0011, transfers out on a separate line). `npm run seed` creates the one account
+from `SEED_EMAIL`/`SEED_PASSWORD`. The API listens on `127.0.0.1:3000` only. Every route has
+a test that another user's session cannot reach the data, and that a `userId` in the request
+is ignored. Also fixed: the integration tests were truncating the *dev* database (they wiped
+the seeded account); they now run against `money_trail_test`. 194/194 tests pass, 84.98% line
+coverage. Verified by hand over real HTTP with `curl` against the seeded account.
+
+For step 8: the client has to flip the summary's negative cents to positive spend exactly
+once, treat `category: null` as "Uncategorized", and keep category labels in `src/web/`
+only. Vite must proxy `/api` to `127.0.0.1:3000` so the cookie is same-origin.
+
+Still missing: the entire client (nothing exists under `src/web/` yet).
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -158,7 +177,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
   list is now verified against Plaid's published taxonomy.
 
 **v2 — before auth work starts:**
-- Session store: Postgres-backed or Redis? Postgres is one less service.
+- ~~Session store: Postgres-backed or Redis?~~ Answered: Postgres (ADR-0012).
 - Signup open to anyone, or invite-only for now?
 
 **v3 — before PWA work starts:**
@@ -199,6 +218,10 @@ format; card spending stays out of scope until after v2.
 
 Newest first. One or two lines per session.
 
+- **2026-10-11** — Step 7: the Fastify server in small commits — typed-error handler, argon2id
+  login with Postgres-backed sessions, the session guard, and the imports / transactions /
+  summary routes. Found that `npm test` was wiping the dev database and moved tests to a
+  `_test` database. ADR-0012 records the server choices. Step 8 (client) is next.
 - **2026-10-11** — Step 6: `importChaseCsv` (parser → categorizer → repository, injected),
   unit-tested with a fake and integration-tested against Postgres. Found and fixed flaky
   cross-file DB interference by running test files serially. Docker Desktop had stopped

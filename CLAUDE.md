@@ -217,7 +217,8 @@ web → api client → HTTP → server routes → services → { repositories �
 - **`services/`** — all business logic. Dependency-injected; services receive repositories
   and providers, never import the db client or an SDK directly.
 - **`repositories/`** — the only place SQL lives. One repository per aggregate. Every method
-  takes `userId` as its first argument.
+  takes `userId` as its first argument — except the pre-auth lookups in `userRepository` and
+  `sessionRepository`, which run before a session exists to supply one (ADR-0012).
 - **`providers/`** — the only place outbound network I/O lives (v4+). Services depend on a
   narrow interface, never on the Plaid SDK.
 - **`domain/`** — types, value objects, errors. Shared by client and server. No I/O, no
