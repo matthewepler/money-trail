@@ -20,6 +20,18 @@ export class ImportError extends Error {
   }
 }
 
+export type AuthErrorCode = 'AUTH_INVALID_CREDENTIALS' | 'AUTH_REQUIRED';
+
+export class AuthError extends Error {
+  readonly code: AuthErrorCode;
+
+  constructor(code: AuthErrorCode, message: string) {
+    super(message);
+    this.name = 'AuthError';
+    this.code = code;
+  }
+}
+
 export class ConfigError extends Error {
   readonly code = 'CONFIG_ERROR';
 
