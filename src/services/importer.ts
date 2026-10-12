@@ -1,5 +1,5 @@
 import { ValidationError } from '../domain/errors.js';
-import type { StoredTransaction } from '../domain/transaction.js';
+import type { ImportResult, StoredTransaction } from '../domain/transaction.js';
 import type { NewTransaction } from '../repositories/transactionRepository.js';
 import { parseChaseCsv } from '../parsers/chaseCsv.js';
 import { categorize, type CategoryRule } from './categorizer.js';
@@ -13,12 +13,6 @@ export type ImporterDeps = {
     transactions: NewTransaction[],
   ) => Promise<StoredTransaction[]>;
   rules?: readonly CategoryRule[];
-};
-
-export type ImportResult = {
-  imported: number;
-  /** Rows no rule matched; stored with a null category. */
-  uncategorized: number;
 };
 
 /**

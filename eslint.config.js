@@ -27,6 +27,41 @@ export default tseslint.config(
     },
   },
   {
+    // The client may depend on src/domain/ and nothing server-side (CLAUDE.md, Layering).
+    files: ['src/web/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/server/**',
+                '**/services/**',
+                '**/repositories/**',
+                '**/parsers/**',
+                '**/providers/**',
+                '**/db/**',
+              ],
+              message: 'The client may import from src/domain/ only.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // fetch() is called in src/web/api/ and nowhere else.
+    files: ['src/web/**/*.{ts,tsx}'],
+    ignores: ['src/web/api/**'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: 'fetch', message: 'Call the API through src/web/api/.' },
+      ],
+    },
+  },
+  {
     files: ['*.config.ts', '*.config.js'],
     rules: {
       'import/no-default-export': 'off',

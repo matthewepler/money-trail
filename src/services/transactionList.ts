@@ -1,16 +1,10 @@
-import type { StoredTransaction, TransactionView } from '../domain/transaction.js';
+import type { StoredTransaction, TransactionPage, TransactionView } from '../domain/transaction.js';
 
 export type TransactionListDeps = {
   listTransactions: (
     userId: string,
     options: { from?: string; to?: string; limit?: number; offset?: number },
   ) => Promise<StoredTransaction[]>;
-};
-
-export type TransactionPage = {
-  transactions: TransactionView[];
-  /** Where the next page starts, or null on the last page. */
-  nextOffset: number | null;
 };
 
 function toView(t: StoredTransaction): TransactionView {

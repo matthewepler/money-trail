@@ -15,6 +15,20 @@ export type TransactionView = Pick<
   'id' | 'date' | 'description' | 'amountCents' | 'account' | 'category'
 >;
 
+/** One page of the ledger as the API returns it. */
+export type TransactionPage = {
+  transactions: TransactionView[];
+  /** Where the next page starts, or null on the last page. */
+  nextOffset: number | null;
+};
+
+/** What `POST /api/imports` reports back. */
+export type ImportResult = {
+  imported: number;
+  /** Rows no rule matched; stored with a null category. */
+  uncategorized: number;
+};
+
 /** A transaction after it has been categorized and persisted. */
 export type StoredTransaction = Transaction & {
   id: string;
