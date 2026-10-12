@@ -3,18 +3,19 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-10-11 (step 8, the client, landed)
+**Last updated:** 2026-10-11 (step 9, Playwright e2e, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–8 done; step 9 (Playwright e2e at mobile viewport) and the CI
-workflow (ADR-0007) remain before the v1 gate can be called.
+**Increment in flight:** steps 1–9 done; the CI workflow (ADR-0007) and a try on a real phone
+remain before the v1 gate can be called.
 
 ---
 
 ## Where things stand
 
 The v1 slice works end to end: sign in, import a Chase checking CSV, see the ledger, see
-spending by category. 272 tests pass (0 skipped), 90.89% line coverage, `categorizer.ts` at
-100% (enforced by `npm run test:cov`), lint/typecheck clean, `npm audit` 0 vulnerabilities.
+spending by category. 273 unit/integration tests and 21 Playwright e2e tests pass (0 skipped),
+90.95% line coverage, `categorizer.ts` at 100% (enforced by `npm run test:cov`),
+lint/typecheck clean, `npm audit` 0 vulnerabilities.
 
 **As built.** Postgres 16 in Docker Compose; Fastify 5 API on `127.0.0.1:3000`; React 18 +
 Vite client (React Router 7, CSS modules) proxying `/api`. Migrations `0001` users and
@@ -31,16 +32,20 @@ here — use `/Applications/Docker.app/Contents/Resources/bin/docker`), `cp .env
 set `SEED_PASSWORD`, `npm run db:migrate`, `npm run seed`, `npm run dev`. `npm test` uses its
 own `money_trail_test` database (created automatically) and never touches dev data.
 
-**Not built yet:** Playwright e2e, the GitHub Actions workflow, `npm run db:reset`
-(the script exists but its file doesn't — see `BACKLOG.md`).
+**e2e.** `npm run test:e2e` builds the client and runs its own API (3100) and web server (4173)
+on `money_trail_test`, in a Pixel 7 profile at 375×667: the happy path, wrong password, a
+refused file, a named bad row, paging over 120 rows, a deep link, a session ending mid-visit,
+and layout checks (no overflow, targets ≥44px, nothing under the tab bar) at 375, 768 and
+1280. Browser is a one-time `npx playwright install chromium`.
+
+**Not built yet:** the GitHub Actions workflow, `npm run db:reset` (the script exists but its
+file doesn't — see `BACKLOG.md`).
 
 **Phase map (revised 2026-09-08):** v1 core web app → v2 resilience + auth + isolation →
 v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. See ADR-0003.
 
 ## Next step
 
-9. Playwright e2e at mobile viewport covering the happy path (sign in → import the fixture →
-   list → summary → sign out), against the `_test` database and a seeded user.
 10. GitHub Actions: lint + typecheck + unit/integration on a `postgres:16` service, e2e as a
     parallel job (ADR-0007).
 11. Close the gate: try the app on a real phone (`npm run dev -- --host`, then
@@ -53,11 +58,11 @@ repeated sync over overlapping date ranges is only safe once dedupe is correct.
 
 | # | Criterion | Status |
 |---|-----------|--------|
-| 1 | `npm test` passes, zero failures, zero skipped | ✅ 272 pass, none skipped |
+| 1 | `npm test` passes, zero failures, zero skipped | ✅ 273 pass, none skipped (plus 21 e2e) |
 | 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean |
-| 3 | Happy path works end to end in a real mobile browser | ⏳ done by hand in the in-app browser (emulated 375×812) on the live stack; not automated yet (step 9) and not on a physical phone |
-| 4 | No horizontal scroll or clipped controls at 375×667 | ✅ measured on all three screens at 375×667, 768 and 1280: no overflow, every target ≥44px, tab bar never covers content; to be asserted in e2e |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 90.89%; `categorizer.ts` 100%, enforced by thresholds |
+| 3 | Happy path works end to end in a real mobile browser | ⏳ automated in Chromium at a Pixel 7 profile, 375×667, against the real stack; not yet on a physical phone |
+| 4 | No horizontal scroll or clipped controls at 375×667 | ✅ asserted in e2e on all three screens at 375×667, 768 and 1280 (and shown to fail when the layout is broken) |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 90.95%; `categorizer.ts` 100%, enforced by thresholds |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
 | 7 | `README.md` documents running the app locally in one command | ⏳ documented as a short setup then `npm run dev` — see question below |
 
@@ -104,6 +109,10 @@ repeated sync over overlapping date ranges is only safe once dedupe is correct.
 
 Newest first.
 
+- **2026-10-11** — Step 9: Playwright e2e in small commits — own-ports stack on the `_test`
+  database, the user journeys, and layout assertions at three sizes (mutation-checked so they
+  fail when the layout breaks). The first journey found a real bug unit tests and a manual
+  check had missed: the import panel collapsed over its own result message; fixed. CI next.
 - **2026-10-11** — Step 8: the client in small commits — Vite/React scaffold, typed API
   client, session state + sign-in + shell, formatting (one place flips the sign), Transactions
   (paged, with CSV import), Summary. Verified in the browser at 375/768/1280 against the live

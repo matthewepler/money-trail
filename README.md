@@ -29,4 +29,9 @@ Current status: [docs/STATUS.md](./docs/STATUS.md).
 
 ```bash
 npm run lint && npm run typecheck && npm test   # before considering any change done
+npx playwright install chromium                 # once, to download the e2e browser
+npm run test:e2e                                # needs Postgres up; touching src/web? run it
 ```
+
+`npm run test:e2e` builds the client and starts its own API (port 3100) and web server (4173)
+on the test database, so it can run beside `npm run dev` without touching your data.
