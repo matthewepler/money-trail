@@ -168,15 +168,24 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
   deferred, not rejected.
 - ADR-0010 — self-service account deletion and JSON export land in v2.
 
-**No decisions outstanding.** The pre-planning pass is complete; remaining items are work,
-not questions. Migration `0002` (ADR-0006 identity columns) and the repository update are
-done; step 4's parser is next and unblocked.
+- ADR-0011 — the primary view is spending; income and loan payments are tracked separately
+  in a cash-flow view; an outbound transfer with no matching deposit in the app is spending.
+
+ADR-0011 also settled: v1's summary shows spending by category plus a separate "Transfers
+out (not matched)" line outside the total; transfer matching lands in v2 with the second bank
+format; card spending stays out of scope until after v2.
+
+**No decisions outstanding.** Step 6 (the importer) is next.
 
 ## Session log
 
 
 Newest first. One or two lines per session.
 
+- **2026-10-11** — Product direction: the app is about spending. Income and loan payments go
+  in a separate cash-flow view; an unmatched outbound transfer counts as spending (ADR-0011).
+  Transfer matching moves out of v5 into v2; v1 shows unmatched transfers on a separate line.
+  No code changed.
 - **2026-10-03** — Step 5: verified the PFC primary list against Plaid's CSV (matches PFCv1;
   new Plaid accounts default to PFCv2 — a v4 decision, now in the backlog). Built
   `categorize` + `Category` + the default rules test-first; 100% on the engine, enforced by

@@ -44,7 +44,9 @@ Scope:
 - Transaction normalization (date, amount, description, account)
 - Rule-based categorization from a static rules file
 - Postgres persistence
-- Two screens: transaction list, and spend-by-category summary for a date range
+- Two screens: transaction list, and spend-by-category summary for a date range. The summary
+  is spending only — `INCOME`, `LOAN_PAYMENTS`, and transfers are out of the total, and
+  outbound transfers show on a separate "Transfers out (not matched)" line (ADR-0011)
 - Responsive and usable at 375px wide
 
 Explicitly out of scope in v1: **service worker, manifest, offline anything, any Plaid
@@ -79,6 +81,8 @@ Scope:
 - Transactional writes; a failed import rolls back cleanly
 - Structured logging and a real error taxonomy (see Error Handling)
 - Second bank format + format auto-detection
+- Transfer matching across accounts and a cash-flow view (ADR-0011): a transfer out with a
+  matching deposit in another account is neutral; one with no match counts as spending
 - Schema migrations
 - Account deletion (`DELETE /api/account`, behind password re-entry) and full-ledger export
   (`GET /api/export`, JSON) — see ADR-0010
@@ -92,6 +96,8 @@ Scope:
 - [ ] Importing the same file twice produces zero duplicate rows (regression test)
 - [ ] Two genuinely identical transactions on the same day and account both survive import
       (regression test — the case a naive content hash silently eats)
+- [ ] A transfer out matched by a deposit in another imported account is excluded from
+      spending; an unmatched one is counted (a test for each)
 - [ ] Migrations run forward on a v1-era database in a test
 - [ ] Deleting an account leaves no rows behind in any table (test asserts counts, not just
       a successful response)
@@ -160,8 +166,7 @@ Adding anything to this list requires an ADR. See Bank Connectivity below.
 
 ### Phase v5 — Analysis and polish
 
-Budgets and variance reporting, recurring/subscription detection, multi-account transfer
-matching, heuristic categorization layered on the rule engine (explicit rules always win),
+Budgets and variance reporting, recurring/subscription detection, heuristic categorization layered on the rule engine (explicit rules always win),
 CSV/JSON export, push notifications for large transactions, performance work on large
 ledgers, background sync jobs. Each feature behind a flag that degrades to v4 behavior when
 off; full-ledger benchmark (`npm run bench`) under 2s for 50k transactions. Do not start any

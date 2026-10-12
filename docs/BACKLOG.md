@@ -25,7 +25,18 @@ None open.
 - [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
   `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
   Required status checks on the default branch.
+- [v1] Summary classification (ADR-0011): spending excludes `INCOME`, `LOAN_PAYMENTS`, and
+  `TRANSFER_*`; uncategorized outflow shows as "Uncategorized"; outbound transfers appear on
+  their own "Transfers out (not matched)" line, outside the total. Derived in the reporter.
+
 ## Deferred — v2 (resilience, auth, isolation)
+
+- [v2] Transfer matching (ADR-0011): different accounts, opposite signs, equal absolute
+  amount, dates within a small window, each row matched once. Derived at read time. Matched
+  pairs are neutral; an unmatched outbound transfer joins the spending total. Tests for both,
+  plus "importing the second account re-resolves earlier transfers".
+- [v2] Cash-flow view (ADR-0011): income, loan payments, and spending, reconciling to net
+  cash flow. Proposed placement; not a v1 screen.
 
 - [v2] Multi-user signup, argon2id password hashing, session rotation on login, logout everywhere.
 - [v2] `DELETE /api/account` — password re-entry, cascade to transactions, session
@@ -96,7 +107,6 @@ None open.
 - [v5] Heuristic/learned categorization layered on the rule engine — explicit rules always win.
 - [v5] Budgets and variance reporting.
 - [v5] Recurring-transaction and subscription detection.
-- [v5] Multi-account transfer matching (an outflow and inflow that are the same movement).
 - [v5] Export to CSV/JSON.
 - [v5] Push notifications for large transactions (iOS requires an installed PWA).
 - [v5] Background sync jobs so a sync doesn't need the app open.

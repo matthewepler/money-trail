@@ -371,3 +371,50 @@ or it silently leaks rows. Rejected: deferring both to v5 (the deletion path onl
 as tables and Plaid items accumulate, and a lost dev database would be a total loss in the
 meantime) and export-only (cheaper by about an hour, but leaves the v4 sequencing problem
 exactly where it was).
+
+
+---
+
+## ADR-0011 — Spending view vs cash-flow view; an unmatched outbound transfer is spending
+
+**Date:** 2026-10-11 · **Status:** accepted
+
+**Context.** The product exists to show where money is spent. Run over a real two-year
+checking export, categorization showed the problem: transfers and card/loan payments were
+more than an order of magnitude larger than direct spending, so a summary that sums every
+category would bury the spending it is meant to reveal.
+
+**Decision.**
+
+1. **The primary view is spending by category.** Spending is outflow, net of refunds, in every
+   category except `INCOME`, `LOAN_PAYMENTS`, `TRANSFER_IN`, and `TRANSFER_OUT`, plus
+   uncategorized (`NULL`) outflow — shown as "Uncategorized" so rule gaps stay visible — plus
+   unmatched outbound transfers (point 3).
+2. **A separate cash-flow view** holds the whole picture: income, loan payments (card
+   payments included), and total spending, so net cash flow reconciles.
+3. **A transfer only matters if money leaves the app's cash accounts.** An outbound transfer
+   with a matching inbound deposit in another account in the app is neutral and appears in
+   neither view. An outbound transfer with no match is treated as an expense. An unmatched
+   inbound transfer is not spending; it shows as an inflow in the cash-flow view (assumed —
+   not yet confirmed).
+4. **The classification is derived at read time, never stored.** The stored category stays
+   `TRANSFER_OUT` (ADR-0005). Matching is recomputed from the ledger, so importing a second
+   account later re-resolves earlier transfers without rewriting any row.
+5. **Matching** pairs rows from different accounts with opposite signs, equal absolute
+   amounts, and dates within a small window, each row used at most once. The window and
+   tie-breaking are settled test-first when it is built.
+
+**Consequences.** Transfer matching moves out of v5: the spending number depends on it. A
+match needs at least two accounts imported, so with one account every outbound transfer is
+unmatched. Transfers to accounts outside the app (savings, brokerage — kept out of scope by
+ADR-0004) count as spending by this rule; that is the intended behavior, and it will look
+large for anyone who sweeps money into investments. Because loan and card payments are not
+spending, anything bought *on* a credit card is invisible — only the payment shows, in the
+cash-flow view.
+
+**Resolved 2026-10-11.** (a) v1 imports one bank, so it can never produce a match. Its
+summary shows spending by category and a separate, labeled "Transfers out (not matched)"
+line that is *not* added into the spending total; matching, and folding unmatched transfers
+into spending, lands in v2 with the second bank format, where a match is possible. (b) Card
+spending stays out of scope for now (ADR-0004 stands): card payments show in the cash-flow
+view, and the question is revisited after v2. The cash-flow view itself is not a v1 screen.
