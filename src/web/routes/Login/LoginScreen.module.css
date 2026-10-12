@@ -1,0 +1,26 @@
+.page {
+  display: grid;
+  min-height: 100dvh;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  align-items: center;
+  justify-items: center;
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  padding: 24px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.card button {
+  width: 100%;
+}
+
+.title {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+}
