@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getSessionStatus, signIn as apiSignIn, signOut as apiSignOut } from '../api/session.js';
 import { SessionContext, type Session, type SessionStatus } from '../hooks/useSession.js';
 
@@ -17,6 +17,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, [attempt]);
 
+  // Stable, so effects that depend on it don't re-run every time the status changes.
+  const expire = useCallback(() => setStatus('signedOut'), []);
+
   const value = useMemo<Session>(
     () => ({
       status,
@@ -28,13 +31,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await apiSignOut();
         setStatus('signedOut');
       },
-      expire: () => setStatus('signedOut'),
+      expire,
       retry: () => {
         setStatus('checking');
         setAttempt((n) => n + 1);
       },
     }),
-    [status],
+    [status, expire],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

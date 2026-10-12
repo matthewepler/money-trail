@@ -1,0 +1,43 @@
+.title {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+}
+
+.import {
+  margin-bottom: 16px;
+  padding: 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.import summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import[open] summary {
+  margin-bottom: 8px;
+}
+
+.import form {
+  padding-bottom: 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.more {
+  width: 100%;
+  margin-top: 16px;
+}

@@ -2,10 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
+import { fetchTransactions } from './api/ledger.js';
 import { ApiError } from './api/request.js';
 import { getSessionStatus, signIn, signOut } from './api/session.js';
 
 vi.mock('./api/session.js');
+vi.mock('./api/ledger.js');
 
 function renderAt(path: string) {
   return render(
@@ -21,6 +23,7 @@ function apiError(code: string, status = 400) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(fetchTransactions).mockResolvedValue({ transactions: [], nextOffset: null });
 });
 
 describe('session gate and routing', () => {
