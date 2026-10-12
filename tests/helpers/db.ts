@@ -1,6 +1,9 @@
 import { pool } from '../../src/db/client.js';
+import { assertTestDatabase } from './testDatabase.js';
 
 export async function truncateAll(): Promise<void> {
+  const { rows } = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  assertTestDatabase(rows[0]?.name ?? '');
   await pool.query('TRUNCATE TABLE transactions, users RESTART IDENTITY CASCADE');
 }
 
