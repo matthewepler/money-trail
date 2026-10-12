@@ -23,7 +23,6 @@ Critical or high bugs block the current gate.
 
 ## Deferred — v1 (current phase, not yet built)
 
-- [v1] Display-label map for category constants, in `src/web/` only.
 - [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
   `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
   Required status checks on the default branch.
