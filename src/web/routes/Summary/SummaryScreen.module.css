@@ -1,0 +1,58 @@
+.title {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.total {
+  margin-bottom: 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.total p {
+  margin: 0;
+}
+
+.totalLabel {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.totalAmount {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transfers {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.transfersLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.transfers .muted {
+  margin: 0;
+  font-size: 0.875rem;
+}
