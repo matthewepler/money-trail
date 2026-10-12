@@ -131,21 +131,38 @@ export async function listTransactions(
   return result.rows.map(toStoredTransaction);
 }
 
-export async function summarizeByCategory(
+export type CategoryTotal = {
+  category: string | null;
+  direction: 'in' | 'out';
+  totalCents: number;
+};
+
+/**
+ * Money in and money out are summed apart, so a caller can tell a refund from spending
+ * even inside one category (and ignore uncategorized inflow).
+ */
+export async function sumByCategoryAndDirection(
   userId: string,
   from: string,
   to: string,
-): Promise<{ category: string | null; totalCents: number }[]> {
-  const result = await pool.query<{ category: string | null; total_cents: string }>(
-    `SELECT category, SUM(amount_cents) AS total_cents
+): Promise<CategoryTotal[]> {
+  const result = await pool.query<{
+    category: string | null;
+    direction: 'in' | 'out';
+    total_cents: string;
+  }>(
+    `SELECT category,
+            CASE WHEN amount_cents < 0 THEN 'out' ELSE 'in' END AS direction,
+            SUM(amount_cents) AS total_cents
      FROM transactions
      WHERE user_id = $1 AND date >= $2 AND date <= $3
-     GROUP BY category`,
+     GROUP BY category, direction`,
     [userId, from, to],
   );
 
   return result.rows.map((row) => ({
     category: row.category,
+    direction: row.direction,
     totalCents: Number(row.total_cents),
   }));
 }

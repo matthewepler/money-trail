@@ -35,6 +35,15 @@ export function readOptionalDateRange(query: unknown): { from?: string; to?: str
   return range;
 }
 
+/** Both ends of an inclusive date range, required. */
+export function readRequiredDateRange(query: unknown): { from: string; to: string } {
+  const { from, to } = readOptionalDateRange(query);
+  if (!from || !to) {
+    throw new ValidationError('from and to are required, like ?from=2026-09-01&to=2026-09-30');
+  }
+  return { from, to };
+}
+
 export function readPage(query: unknown): { limit: number; offset: number } {
   const { limit, offset } = asRecord(query);
   return {

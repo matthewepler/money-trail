@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   insertTransactions,
   listTransactions,
-  summarizeByCategory,
+  sumByCategoryAndDirection,
 } from '../../src/repositories/transactionRepository.js';
 import { insertTestUser, truncateAll } from '../helpers/db.js';
 
@@ -140,7 +140,7 @@ describe('transactionRepository', () => {
     expect(result.map((t) => t.description)).toEqual(['NEWER', 'OLDER']);
   });
 
-  it('summarizes spend by category within a date range, scoped to the user', async () => {
+  it('sums by category and direction within a date range, scoped to the user', async () => {
     const ownerId = await insertTestUser('owner@example.com');
     const otherId = await insertTestUser('other@example.com');
 
@@ -173,6 +173,24 @@ describe('transactionRepository', () => {
         externalId: null,
       },
       {
+        date: '2026-09-14',
+        description: 'REFUND',
+        amountCents: 200,
+        account: 'a',
+        category: 'FOOD_AND_DRINK',
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
+        date: '2026-09-15',
+        description: 'UNKNOWN OUT',
+        amountCents: -50,
+        account: 'a',
+        category: null,
+        source: 'chase-csv',
+        externalId: null,
+      },
+      {
         date: '2026-08-01',
         description: 'D',
         amountCents: -900,
@@ -194,15 +212,17 @@ describe('transactionRepository', () => {
       },
     ]);
 
-    const summary = await summarizeByCategory(ownerId, '2026-09-01', '2026-09-30');
+    const summary = await sumByCategoryAndDirection(ownerId, '2026-09-01', '2026-09-30');
 
+    expect(summary).toHaveLength(4);
     expect(summary).toEqual(
       expect.arrayContaining([
-        { category: 'FOOD_AND_DRINK', totalCents: -800 },
-        { category: 'TRANSPORTATION', totalCents: -700 },
+        { category: 'FOOD_AND_DRINK', direction: 'out', totalCents: -800 },
+        { category: 'FOOD_AND_DRINK', direction: 'in', totalCents: 200 },
+        { category: 'TRANSPORTATION', direction: 'out', totalCents: -700 },
+        { category: null, direction: 'out', totalCents: -50 },
       ]),
     );
-    expect(summary).toHaveLength(2);
   });
 
   describe('pagination', () => {
