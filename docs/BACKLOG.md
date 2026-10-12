@@ -11,6 +11,9 @@ Critical or high bugs block the current gate.
 
 ## Bugs
 
+None open.
+
+<!-- Example of the shape once there is code:
 - [high] Amounts with a trailing `CR` suffix parse as NaN instead of a negative — `parsers/chaseCsv.ts`, fixture `chase-credit-note.csv`.
 -->
 
