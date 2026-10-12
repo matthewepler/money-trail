@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     // Integration files share one Postgres and truncate it between tests; run files serially.
     fileParallelism: false,
     globalSetup: ['./tests/globalSetup.ts'],
+    setupFiles: ['./src/web/testSetup.ts'],
     env: testEnv(loadEnv(mode, process.cwd(), '')),
     include: [
       'src/**/*.test.{ts,tsx}',
