@@ -3,10 +3,11 @@
 > Read this first when resuming. Update it when an increment lands or a session ends.
 > Keep it under a page — details belong in `BACKLOG.md` or `DECISIONS.md`.
 
-**Last updated:** 2026-10-03 (step 5, the categorizer, landed)
+**Last updated:** 2026-10-11 (step 6, the importer, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–5 done, plus the ADR-0006 identity follow-up; step 6
-(`src/services/importer.ts` — parser → categorizer → repository) next.
+**Increment in flight:** steps 1–6 done, plus the ADR-0006 identity follow-up; step 7
+(Fastify bootstrap, session login for the seeded account, `POST /api/imports`,
+`GET /api/transactions`, `GET /api/summary`) next.
 
 ---
 
@@ -71,7 +72,23 @@ showed up when I ran the rules over the real export locally (233 rows parsed wit
 functions, and `vitest.config.ts` now enforces that plus the ≥60% overall floor, so
 `npm run test:cov` fails if either regresses. 102/102 tests pass, 76.97% line coverage.
 
-Still missing: importer, the Fastify server, and the entire client.
+**Step 6 landed:** `src/services/importer.ts` — `importChaseCsv(deps, userId, { text,
+account })` parses, categorizes with the default (or injected) rules, stamps each row
+`source: 'chase-csv'` / `externalId: null`, and stores them through an injected
+`insertTransactions`, returning `{ imported, uncategorized }`. The file is fully parsed
+before anything is written and the write is one statement, so a bad row rejects the whole
+file and leaves the ledger untouched. A blank account label is a `ValidationError`. Unit tests
+use a fake repository; `tests/integration/importer.test.ts` runs the fixture through the real
+repository and Postgres, including two identical same-day rows both surviving with
+`occurrence_index` 1 and 2. Duplicate *re-imports* are still not prevented (v2). The summary
+route must apply ADR-0011's spending/transfer classification (BACKLOG, v1).
+
+Test infra: the integration files share one database and truncate it between tests, which
+made results flaky once there were two of them, so `vitest.config.ts` now runs test files
+serially (`fileParallelism: false`). Postgres must be running (`docker compose up -d`, which
+needs Docker Desktop open) before `npm test`. 111/111 tests pass, 78.26% line coverage.
+
+Still missing: the Fastify server and the entire client.
 
 **Decisions made this session:**
 - Deploy target: local only for now, via Docker Compose (Postgres). No hosted deploy yet.
@@ -124,7 +141,7 @@ met — a repeated sync over overlapping date ranges is only safe once dedupe is
 | 2 | `npm run lint` and `npm run typecheck` clean | ✅ clean (empty suite) |
 | 3 | Happy path works end to end in a real mobile browser | ❌ not started |
 | 4 | No horizontal scroll or clipped controls at 375×667 | ❌ not started |
-| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 76.97% overall; `categorizer.ts` 100%, enforced by `test:cov` thresholds |
+| 5 | Line coverage ≥ 60%; rule engine at 100% | ✅ 78.26% overall; `categorizer.ts` 100%, enforced by `test:cov` thresholds |
 | 6 | No critical/high bugs open in `BACKLOG.md` | ✅ none open |
 | 7 | `README.md` documents running the app locally in one command | ✅ written (untested — no Docker on this machine yet) |
 
@@ -182,6 +199,10 @@ format; card spending stays out of scope until after v2.
 
 Newest first. One or two lines per session.
 
+- **2026-10-11** — Step 6: `importChaseCsv` (parser → categorizer → repository, injected),
+  unit-tested with a fake and integration-tested against Postgres. Found and fixed flaky
+  cross-file DB interference by running test files serially. Docker Desktop had stopped
+  between sessions; restarted it. Step 7 (server + routes) is next.
 - **2026-10-11** — Product direction: the app is about spending. Income and loan payments go
   in a separate cash-flow view; an unmatched outbound transfer counts as spending (ADR-0011).
   Transfer matching moves out of v5 into v2; v1 shows unmatched transfers on a separate line.

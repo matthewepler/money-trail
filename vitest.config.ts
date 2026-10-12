@@ -5,6 +5,8 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'jsdom',
     passWithNoTests: true,
+    // Integration files share one Postgres and truncate it between tests; run files serially.
+    fileParallelism: false,
     env: loadEnv(mode, process.cwd(), ''),
     include: ['src/**/*.test.{ts,tsx}', 'tests/integration/**/*.test.ts'],
     coverage: {
