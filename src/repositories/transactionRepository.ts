@@ -95,7 +95,7 @@ export async function insertTransactions(
 
 export async function listTransactions(
   userId: string,
-  options: { from?: string; to?: string } = {},
+  options: { from?: string; to?: string; limit?: number; offset?: number } = {},
 ): Promise<StoredTransaction[]> {
   const conditions = ['user_id = $1'];
   const params: unknown[] = [userId];
@@ -109,11 +109,22 @@ export async function listTransactions(
     conditions.push(`date <= $${params.length}`);
   }
 
+  // id breaks ties within a date so consecutive pages never repeat or skip a row.
+  let pagination = '';
+  if (options.limit !== undefined) {
+    params.push(options.limit);
+    pagination += ` LIMIT $${params.length}`;
+  }
+  if (options.offset !== undefined) {
+    params.push(options.offset);
+    pagination += ` OFFSET $${params.length}`;
+  }
+
   const result = await pool.query<TransactionRow>(
     `SELECT ${SELECT_COLUMNS}
      FROM transactions
      WHERE ${conditions.join(' AND ')}
-     ORDER BY date DESC, id DESC`,
+     ORDER BY date DESC, id DESC${pagination}`,
     params,
   );
 

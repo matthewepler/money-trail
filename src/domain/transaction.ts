@@ -9,6 +9,12 @@ export type Transaction = {
   account: string;
 };
 
+/** What the client is shown of a stored transaction — no identity internals. */
+export type TransactionView = Pick<
+  StoredTransaction,
+  'id' | 'date' | 'description' | 'amountCents' | 'account' | 'category'
+>;
+
 /** A transaction after it has been categorized and persisted. */
 export type StoredTransaction = Transaction & {
   id: string;
@@ -26,7 +32,7 @@ export type StoredTransaction = Transaction & {
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function isRealCalendarDate(date: string): boolean {
+export function isRealCalendarDate(date: string): boolean {
   const match = ISO_DATE_PATTERN.exec(date);
   if (!match) return false;
 

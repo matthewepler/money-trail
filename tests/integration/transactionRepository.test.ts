@@ -205,6 +205,48 @@ describe('transactionRepository', () => {
     expect(summary).toHaveLength(2);
   });
 
+  describe('pagination', () => {
+    const rows = Array.from({ length: 7 }, (_, i) => ({
+      date: i < 4 ? '2026-09-20' : '2026-09-10',
+      description: `ROW ${i}`,
+      amountCents: -100 - i,
+      account: 'a',
+      category: null,
+      source: 'chase-csv',
+      externalId: null,
+    }));
+
+    it('returns one page at a time with limit and offset', async () => {
+      const userId = await insertTestUser('owner@example.com');
+      await insertTransactions(userId, rows);
+
+      const page = await listTransactions(userId, { limit: 3, offset: 2 });
+
+      expect(page).toHaveLength(3);
+    });
+
+    it('walks every row exactly once, even across rows that share a date', async () => {
+      const userId = await insertTestUser('owner@example.com');
+      await insertTransactions(userId, rows);
+
+      const seen: string[] = [];
+      for (let offset = 0; offset < 9; offset += 3) {
+        const page = await listTransactions(userId, { limit: 3, offset });
+        seen.push(...page.map((t) => t.id));
+      }
+
+      expect(seen).toHaveLength(7);
+      expect(new Set(seen).size).toBe(7);
+    });
+
+    it('returns everything when no limit is given', async () => {
+      const userId = await insertTestUser('owner@example.com');
+      await insertTransactions(userId, rows);
+
+      expect(await listTransactions(userId)).toHaveLength(7);
+    });
+  });
+
   describe('transaction identity (ADR-0006)', () => {
     const coffee = {
       date: '2026-09-29',
