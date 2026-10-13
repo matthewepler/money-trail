@@ -28,3 +28,35 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+
+  unit-integration:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: money_trail
+          POSTGRES_PASSWORD: money_trail
+          POSTGRES_DB: money_trail
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U money_trail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The suite derives and creates its own money_trail_test database from this.
+      DATABASE_URL: postgres://money_trail:money_trail@localhost:5432/money_trail
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # test:cov, not test: it also enforces the coverage thresholds in vitest.config.ts
+      # (>= 60% overall, 100% on the rule engine).
+      - run: npm run test:cov
