@@ -60,3 +60,56 @@ jobs:
       # test:cov, not test: it also enforces the coverage thresholds in vitest.config.ts
       # (>= 60% overall, 100% on the rule engine).
       - run: npm run test:cov
+
+  # Slowest job, so it runs alongside the others rather than after them.
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: money_trail
+          POSTGRES_PASSWORD: money_trail
+          POSTGRES_DB: money_trail
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U money_trail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://money_trail:money_trail@localhost:5432/money_trail
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # The browser is ~100 MB; cache it per Playwright version.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/@playwright/test/package.json') }}
+      - name: Install Chromium and its system libraries
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      # A cached browser still needs the OS libraries on a fresh runner.
+      - name: Install system libraries for the cached Chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run test:e2e
+      - name: Keep the report and traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
