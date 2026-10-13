@@ -5,8 +5,8 @@
 
 **Last updated:** 2026-10-11 (step 9, Playwright e2e, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–9 done; the CI workflow (ADR-0007) and a try on a real phone
-remain before the v1 gate can be called.
+**Increment in flight:** steps 1–10 built; what remains before the v1 gate can be called is
+running CI on GitHub for the first time, and a try on a real phone.
 
 ---
 
@@ -38,17 +38,24 @@ refused file, a named bad row, paging over 120 rows, a deep link, a session endi
 and layout checks (no overflow, targets ≥44px, nothing under the tab bar) at 375, 768 and
 1280. Browser is a one-time `npx playwright install chromium`.
 
-**Not built yet:** the GitHub Actions workflow, `npm run db:reset` (the script exists but its
-file doesn't — see `BACKLOG.md`).
+**CI.** `.github/workflows/ci.yml` (ADR-0007) runs on every push and pull request as three
+parallel jobs — *Lint and typecheck*, *Unit and integration tests* (`postgres:16` service,
+`test:cov` so the coverage thresholds gate), *End-to-end tests* (Chromium cached per Playwright
+version, report and traces kept on failure). It has been reproduced step by step in a clean
+clone with no `.env` against an empty Postgres, including a deliberate failure, but **it has
+not yet run on GitHub**: nothing has been pushed.
+
+**Not built yet:** `npm run db:reset` (the script exists but its file doesn't — see
+`BACKLOG.md`).
 
 **Phase map (revised 2026-09-08):** v1 core web app → v2 resilience + auth + isolation →
 v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. See ADR-0003.
 
 ## Next step
 
-10. GitHub Actions: lint + typecheck + unit/integration on a `postgres:16` service, e2e as a
-    parallel job (ADR-0007).
-11. Close the gate: try the app on a real phone (`npm run dev -- --host`, then
+11. Push, watch the first CI run, and fix whatever GitHub does differently from the local
+    reproduction; then turn on required status checks (job names in `BACKLOG.md`).
+12. Close the gate: try the app on a real phone (`npm run dev -- --host`, then
     `http://<lan-ip>:5173`) and settle the README question below.
 
 Do not start v2 until the v1 gate is met; nothing from v3 or v4 until v2's gate is met — a
@@ -109,6 +116,9 @@ repeated sync over overlapping date ranges is only safe once dedupe is correct.
 
 Newest first.
 
+- **2026-10-13** — Step 10: the CI workflow in three small commits (lint/typecheck, unit +
+  integration on Postgres, e2e), each reproduced in a clean clone — including a failing e2e
+  run to confirm the artifact paths. Not yet run on GitHub; no push without approval.
 - **2026-10-11** — Step 9: Playwright e2e in small commits — own-ports stack on the `_test`
   database, the user journeys, and layout assertions at three sizes (mutation-checked so they
   fail when the layout breaks). The first journey found a real bug unit tests and a manual

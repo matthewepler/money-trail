@@ -21,12 +21,14 @@ None open.
 
 ## Deferred — v1 (current phase, not yet built)
 
-- [v1] GitHub Actions workflow (ADR-0007): lint + typecheck + unit/integration on a
-  `postgres:16` service container, Playwright e2e as a parallel job, npm and browser caches.
-  Required status checks on the default branch.
-- [v1] Summary classification (ADR-0011): spending excludes `INCOME`, `LOAN_PAYMENTS`, and
-  `TRANSFER_*`; uncategorized outflow shows as "Uncategorized"; outbound transfers appear on
-  their own "Transfers out (not matched)" line, outside the total. Derived in the reporter.
+- [v1] Push, and check the first CI run on GitHub. The workflow (`.github/workflows/ci.yml`)
+  has been reproduced step by step in a clean clone against an empty Postgres, but has never
+  run on GitHub itself.
+- [v1] After one green run, turn on required status checks for the default branch (GitHub →
+  Settings → Branches; needs repo admin): `Lint and typecheck`, `Unit and integration tests`,
+  `End-to-end tests` (ADR-0007).
+- [v1] CI does not check formatting: `npm run lint` is ESLint only, so Prettier drift would pass.
+  Add `prettier --check`, scoped to code (the markdown docs are not Prettier-formatted).
 
 ## Deferred — v2 (resilience, auth, isolation)
 
