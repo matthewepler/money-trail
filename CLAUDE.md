@@ -497,6 +497,9 @@ money-trail/
   E2E: `tests/e2e/*.spec.ts`.
 - API routes are plural nouns under `/api/` — `/api/transactions`, `/api/summary`.
   Responses are `{ data }` or `{ error: { code, message } }`, never a bare array.
+- Test data is invented. Never copy a description, merchant, location, or amount from
+  `docs/sample_csv/` into a fixture, test, doc, or commit message — the repo is public. Look at
+  the real exports only for their shape.
 - Migrations: `0003-add-merchant-column.sql` — sequential, never edited once applied.
 - Categories are **Plaid Personal Finance Category primaries** — `SCREAMING_SNAKE` strings
   like `FOOD_AND_DRINK`, stored as-is (ADR-0005). `NULL` means uncategorized; there is no

@@ -5,8 +5,8 @@
 
 **Last updated:** 2026-10-11 (step 9, Playwright e2e, landed)
 **Current phase:** v1 — Core web app
-**Increment in flight:** steps 1–10 built; what remains before the v1 gate can be called is
-running CI on GitHub for the first time, and a try on a real phone.
+**Increment in flight:** steps 1–10 done and pushed; CI is green on GitHub. What remains before
+the v1 gate can be called: required status checks, and a try on a real phone.
 
 ---
 
@@ -42,8 +42,13 @@ and layout checks (no overflow, targets ≥44px, nothing under the tab bar) at 3
 parallel jobs — *Lint and typecheck*, *Unit and integration tests* (`postgres:16` service,
 `test:cov` so the coverage thresholds gate), *End-to-end tests* (Chromium cached per Playwright
 version, report and traces kept on failure). It has been reproduced step by step in a clean
-clone with no `.env` against an empty Postgres, including a deliberate failure, but **it has
-not yet run on GitHub**: nothing has been pushed.
+clone with no `.env` against an empty Postgres, and **has run green on GitHub** (about 20 s, 100 s
+and 95 s per job). Its first run failed on a race in two e2e specs that a fast laptop hid; the
+Playwright `github` reporter now puts failures in run annotations, readable without logs.
+
+**The repo is public** (`matthewepler/money-trail`). Tests and docs therefore use invented
+merchants only; real strings from `docs/sample_csv/` were found in three test files before the
+first push and scrubbed from all history.
 
 **Not built yet:** `npm run db:reset` (the script exists but its file doesn't — see
 `BACKLOG.md`).
@@ -53,8 +58,8 @@ v3 installable PWA → v4 live bank sync (Plaid) → v5 analysis and polish. See
 
 ## Next step
 
-11. Push, watch the first CI run, and fix whatever GitHub does differently from the local
-    reproduction; then turn on required status checks (job names in `BACKLOG.md`).
+11. Turn on required status checks for `main` (GitHub settings; needs repo admin — job names
+    in `BACKLOG.md`).
 12. Close the gate: try the app on a real phone (`npm run dev -- --host`, then
     `http://<lan-ip>:5173`) and settle the README question below.
 
@@ -116,6 +121,12 @@ repeated sync over overlapping date ranges is only safe once dedupe is correct.
 
 Newest first.
 
+- **2026-10-13** — Pushed `main` and watched CI. Before pushing, found real merchant names from
+  the sample exports in three committed test files on a public repo; with approval, rewrote the
+  42 unpushed commits to invented names and verified no commit or message still matched. First
+  CI run: lint and unit/integration green, e2e red from a locator race (two `role=status`
+  elements at once on a slower runner), reproduced locally and fixed with a regression test.
+  Second run green.
 - **2026-10-13** — Step 10: the CI workflow in three small commits (lint/typecheck, unit +
   integration on Postgres, e2e), each reproduced in a clean clone — including a failing e2e
   run to confirm the artifact paths. Not yet run on GitHub; no push without approval.

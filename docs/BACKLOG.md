@@ -21,12 +21,13 @@ None open.
 
 ## Deferred — v1 (current phase, not yet built)
 
-- [v1] Push, and check the first CI run on GitHub. The workflow (`.github/workflows/ci.yml`)
-  has been reproduced step by step in a clean clone against an empty Postgres, but has never
-  run on GitHub itself.
-- [v1] After one green run, turn on required status checks for the default branch (GitHub →
-  Settings → Branches; needs repo admin): `Lint and typecheck`, `Unit and integration tests`,
-  `End-to-end tests` (ADR-0007).
+- [v1] Turn on required status checks for the default branch (GitHub → Settings → Branches;
+  needs repo admin): `Lint and typecheck`, `Unit and integration tests`, `End-to-end tests`
+  (ADR-0007). CI has run green on GitHub.
+- [v1] Delete the local branch `backup/pre-scrub` once you are satisfied with the rewritten
+  history: it holds the pre-scrub commits, including the real merchant strings, and must never be
+  pushed (`git branch -D backup/pre-scrub`, then `git reflog expire --expire=now --all && git gc
+  --prune=now` to drop the old objects).
 - [v1] CI does not check formatting: `npm run lint` is ESLint only, so Prettier drift would pass.
   Add `prettier --check`, scoped to code (the markdown docs are not Prettier-formatted).
 
