@@ -18,7 +18,11 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // In CI, also emit GitHub annotations: failures then show on the run and the pull request
+  // without anyone having to open the logs.
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
     trace: 'on-first-retry',
