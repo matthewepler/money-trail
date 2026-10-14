@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetWithUser } from './support/ledger.js';
-import { CSV_HEADER, csvFile, signIn } from './support/ui.js';
+import { CSV_HEADER, csvFile, FIXTURE, importResult, signIn } from './support/ui.js';
 
 test.beforeEach(async () => {
   await resetWithUser();
@@ -53,9 +53,7 @@ test('a long ledger is paged: 50 at a time, until there is no more', async ({ pa
   );
 
   await importFile(page, csvFile(CSV_HEADER, ...rows));
-  await expect(page.getByRole('status')).toHaveText(
-    'Imported 120 transactions. 120 need a category.',
-  );
+  await expect(importResult(page)).toHaveText('Imported 120 transactions. 120 need a category.');
 
   const items = page.getByRole('listitem');
   await expect(items).toHaveCount(50);
@@ -64,4 +62,22 @@ test('a long ledger is paged: 50 at a time, until there is no more', async ({ pa
   await page.getByRole('button', { name: 'Load more' }).click();
   await expect(items).toHaveCount(120);
   await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+});
+
+test('the import result stays on screen while a slow list reloads underneath it', async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.route('**/api/transactions*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+
+  await page.getByLabel('CSV file').setInputFiles(FIXTURE);
+  await page.getByRole('button', { name: 'Import' }).click();
+
+  // Both live regions are present at once; the user must still be able to read the result.
+  await expect(importResult(page)).toHaveText('Imported 8 transactions. 2 need a category.');
+  await expect(page.getByText('Loading transactions…')).toBeVisible();
+  await expect(page.getByRole('listitem')).toHaveCount(8);
 });

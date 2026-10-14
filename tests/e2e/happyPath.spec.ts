@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetWithUser } from './support/ledger.js';
-import { FIXTURE, nav, signIn } from './support/ui.js';
+import { FIXTURE, importResult, nav, signIn } from './support/ui.js';
 
 test.beforeEach(async () => {
   await resetWithUser();
@@ -18,7 +18,7 @@ test('sign in, import a Chase export, see the ledger and the spending summary, s
   await page.getByLabel('CSV file').setInputFiles(FIXTURE);
   await page.getByRole('button', { name: 'Import' }).click();
 
-  await expect(page.getByRole('status')).toHaveText('Imported 8 transactions. 2 need a category.');
+  await expect(importResult(page)).toHaveText('Imported 8 transactions. 2 need a category.');
   const rows = page.getByRole('listitem');
   await expect(rows).toHaveCount(8);
   await expect(rows.filter({ hasText: 'ACME PAYROLL' })).toContainText('+$2,450.00');

@@ -20,6 +20,15 @@ export function csvFile(...lines: string[]) {
   };
 }
 
+/**
+ * The import's own result message. There is also a "Loading transactions…" status while the
+ * list reloads, and on a slow machine both are on screen, so a bare getByRole('status') is
+ * ambiguous.
+ */
+export function importResult(page: Page) {
+  return page.getByRole('status').filter({ hasText: /^Imported/ });
+}
+
 export function nav(page: Page, name: 'Transactions' | 'Summary') {
   return page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name });
 }
